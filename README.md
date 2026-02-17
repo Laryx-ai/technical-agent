@@ -19,3 +19,8 @@ my_project/
 ```
 pip install -r requirements.txt
 ```
+
+# first step
+
+i installed all the packages
+created a streamlit page and added chat elements

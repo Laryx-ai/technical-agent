@@ -4,3 +4,5 @@ sqlalchemy
 pydantic
 streamlit
 requests
+mistralai
+dotenv
