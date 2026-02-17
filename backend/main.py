@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from services.llm import get_llm_response
 
 app = FastAPI()
 
@@ -11,6 +12,5 @@ class ChatRes(BaseModel):
 
 @app.post("/chat", response_model=ChatRes)
 def chat(req: ChatReq):
-    user_msg = req.prompt
-    response_msg = f"backend received: {user_msg}"
-    return {'response':response_msg}
+    response_msg = get_llm_response(req.prompt)
+    return {"response": response_msg}

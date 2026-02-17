@@ -2,7 +2,7 @@ import streamlit as st
 import time
 import requests as req
 
-st.title("Welcome to the FastAPI and Streamlit App")
+st.title("Test Chat")
 
 # Initialising history array if it doesn't exist
 if 'history' not in st.session_state:
