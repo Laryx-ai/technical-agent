@@ -1,15 +1,8 @@
 import streamlit as st
 import time
+import requests as req
 
 st.title("Welcome to the FastAPI and Streamlit App")
-
-
-# Function for stream response
-def chat_stream(prompt):
-    res = f'You said, "{prompt}"'
-    for char in res:
-        yield char
-        time.sleep(0.02)
 
 # Initialising history array if it doesn't exist
 if 'history' not in st.session_state:
@@ -25,6 +18,12 @@ for i, message in enumerate(st.session_state.history):
         content = str(message)
     with st.chat_message(role):
         st.write(content)
+        
+# Function for stream response. In a real implementation, this would call the backend API and stream the response as it arrives.
+def chat_stream(prompt):
+    for char in prompt:
+        yield char
+        time.sleep(0.02)
 
 # Input box for user prompt. On each input the prompt is added to the history and displayed in the chat interface.
 if prompt := st.chat_input("Enter your message:"):
@@ -32,11 +31,17 @@ if prompt := st.chat_input("Enter your message:"):
         st.write(prompt)
     st.session_state.history.append({"role": "user", "content": prompt})
 
+
+    # Call backend API (uncomment to use actual backend)
+    response = req.post("http://localhost:8000/chat", json={"prompt": prompt})
+    if response.status_code == 200:
+        backend_response = response.json().get("response", "")
+
     # Stream the assistant response while capturing the full text
     with st.chat_message("assistant"):
         placeholder = st.empty()
         response_text = ""
-        for ch in chat_stream(prompt):
+        for ch in chat_stream(backend_response):
             response_text += ch
             placeholder.write(response_text)
 
