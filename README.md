@@ -1,15 +1,13 @@
 # Python-web Basics
 ```
-my_project/
-│
+python-web/
+├── .env
 ├── backend/
 │   ├── main.py
-│   ├── database.py
-│   ├── models.py        # SQLAlchemy / SQLModel
-│   ├── schemas.py       # Pydantic
-│   ├── crud.py
-│   └── routers/
-│
+│   ├── services/
+│   │   ├── __init__.py
+│   │   └── llm.py
+│   └── venv/
 ├── frontend/
 │   └── app.py
 ```
