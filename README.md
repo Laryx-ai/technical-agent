@@ -395,13 +395,19 @@ Current knowledge base covers: account setup, ticket management, billing, troubl
 ## Frontend
 
 The Streamlit UI includes a **sidebar** with:
-- **Service selector** — `chat` | `rag`
+- **Service selector** — `rag` (default) | `chat`
 - **Provider selector**
-  - `chat` → `groq` | `mistral` | `hf`
   - `rag`  → `groq` | `mistral`
+  - `chat` → `groq` | `mistral` | `hf`
 - **Active label** always shown as `service / provider`
 
 Each assistant reply shows a `via service / provider` caption.
+
+> **Default:** The app opens with **RAG** mode enabled — answers are grounded in the knowledge base documents.
+
+### Enabling simple chat (no knowledge base)
+
+To switch to a direct LLM conversation without RAG, select **chat** from the Service dropdown in the sidebar, then pick a provider. The request goes straight to the LLM with no document retrieval.
 
 ---
 

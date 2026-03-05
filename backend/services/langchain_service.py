@@ -1,3 +1,16 @@
+"""
+langchain_service.py — Pure LLM chat (no knowledge base)
+
+Handles direct conversations with an LLM using a fixed system prompt.
+No documents are retrieved — the model answers entirely from its own
+pre-trained knowledge plus the conversation history sent by the client.
+
+Used by:  POST /chat  (provider=groq | mistral)
+Providers: Groq (LLaMA 3.3 70B), Mistral AI
+
+Compare with rag_service.py, which retrieves relevant document chunks
+before calling the LLM and constrains the answer to those chunks.
+"""
 import os
 from dotenv import load_dotenv
 from langchain_mistralai import ChatMistralAI

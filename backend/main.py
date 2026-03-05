@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from services import get_llm_response, get_hf_response, get_langchain_response, get_groq_response, get_rag_response, rebuild_index
+from services import get_hf_response, get_langchain_response, get_rag_response, rebuild_index
 
 app = FastAPI()
 

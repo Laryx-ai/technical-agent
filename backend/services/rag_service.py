@@ -1,3 +1,19 @@
+"""
+rag_service.py — Retrieval-Augmented Generation (knowledge base chat)
+
+Before calling the LLM, this service retrieves the top-4 most relevant
+chunks from the local FAISS vector index (built from knowledge_base/).
+Those chunks are injected into the prompt as documentation context.
+The LLM is instructed to answer only from that context and say
+"I don't know" when the answer isn't there.
+
+Used by:  POST /rag  (provider=groq | mistral)
+          POST /rag/rebuild  — rebuilds the FAISS index from disk
+
+Key difference from langchain_service.py:
+  langchain_service  → open-ended chat, no document grounding
+  rag_service        → answers grounded in knowledge_base/ documents only
+"""
 import os
 from dotenv import load_dotenv
 from langchain_community.document_loaders import DirectoryLoader, TextLoader

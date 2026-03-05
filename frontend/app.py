@@ -2,12 +2,14 @@ import streamlit as st
 import time
 import requests as req
 
-st.title("Test Chat")
+st.title("Technical Support Chat")
+st.caption("Hi, I'm your AI assistant.")
+st.image("https://images.unsplash.com/photo-1504384308090-c894fdcc538d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", caption="How can I assist you today?")
 
 # Service selector in sidebar
 with st.sidebar:
     st.header("Model Settings")
-    service = st.selectbox("Service", ["chat", "rag"], index=0)
+    service = st.selectbox("Service", ["rag", "chat"], index=0)
     if service == "chat":
         provider = st.selectbox("Provider", ["groq", "mistral", "hf"], index=0)
     else:
