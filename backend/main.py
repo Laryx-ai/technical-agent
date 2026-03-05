@@ -24,18 +24,16 @@ class ChatRes(BaseModel):
 
 @app.post("/chat", response_model=ChatRes)
 def chat(req: ChatReq):
-    if req.service == "langchain":
-        response_msg = get_langchain_response(req.prompt, provider=req.provider, history=req.history)
-    elif req.service == "hf":
+    if req.provider == "hf":
         response_msg = get_hf_response(req.prompt)
-    elif req.service == "groq":
-        response_msg = get_groq_response(req.prompt)
+    elif req.provider in ("groq", "mistral"):
+        response_msg = get_langchain_response(req.prompt, provider=req.provider, history=req.history)
     else:
-        response_msg = "Invalid service specified"
+        response_msg = f"Unknown provider '{req.provider}'. Choose from: groq, mistral, hf"
     return {
         "response": response_msg,
-        "service": req.service,
-        "provider": req.provider if req.service == "langchain" else None,
+        "service": "chat",
+        "provider": req.provider,
     }
 
 

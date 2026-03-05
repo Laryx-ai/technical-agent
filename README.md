@@ -106,13 +106,12 @@ Frontend runs at `http://localhost:8501`
 
 ### `POST /chat`
 
-Chat using a selected service and provider.
+Chat using a provider of your choice. Routing is **provider-driven** — no `service` field needed.
 
 **Request:**
 ```json
 {
   "prompt": "Your message here",
-  "service": "langchain",
   "provider": "groq",
   "history": [
     { "role": "user", "content": "Hi" },
@@ -121,14 +120,19 @@ Chat using a selected service and provider.
 }
 ```
 
-**`service` options:** `langchain` | `mistral` | `hf`  
-**`provider` options (langchain only):** `groq` | `mistral`
+**`provider` options:**
+
+| Provider | Backend | Notes |
+|---|---|---|
+| `groq` | `langchain_service.py` | LLaMA 3.3 70B via Groq API |
+| `mistral` | `langchain_service.py` | Mistral via Mistral API |
+| `hf` | `hf.py` | Mistral-7B via HuggingFace Inference API |
 
 **Response:**
 ```json
 {
   "response": "Assistant reply here",
-  "service": "langchain",
+  "service": "chat",
   "provider": "groq"
 }
 ```
@@ -181,7 +185,7 @@ Rebuild the FAISS index after adding new files to `knowledge_base/`.
                         │  HTTP (localhost:8501)
 ┌───────────────────────▼─────────────────────────┐
 │           Frontend  (Streamlit — app.py)        │
-│  • Sidebar: service + provider selector         │
+│  • Sidebar: chat/rag service + provider picker  │
 │  • Maintains chat history in session state      │
 │  • Streams assistant reply character-by-char    │
 └───────────────────────┬─────────────────────────┘
@@ -195,12 +199,12 @@ Rebuild the FAISS index after adding new files to `knowledge_base/`.
 └──────┬──────────────────────────┬───────────────┘
        │  /chat                   │  /rag
 ┌──────▼───────────┐   ┌──────────▼──────────────┐
-│ langchain_service│   │      rag_service         │
-│ (LCEL chain)     │   │ • FAISS vector search    │
-│                  │   │ • Top-4 chunks retrieved │
-│ or hf.py         │   │ • Chunks injected into   │
-│ (HuggingFace     │   │   prompt as context      │
-│  Inference API)  │   └──────────┬───────────────┘
+│ provider=groq    │   │      rag_service         │
+│ provider=mistral │   │ • FAISS vector search    │
+│  → langchain_    │   │ • Top-4 chunks retrieved │
+│    service.py    │   │ • Chunks injected into   │
+│ provider=hf      │   │   prompt as context      │
+│  → hf.py         │   └──────────┬───────────────┘
 └──────┬───────────┘              │
        │                          │
 ┌──────▼──────────────────────────▼───────────────┐
@@ -216,16 +220,20 @@ Rebuild the FAISS index after adding new files to `knowledge_base/`.
 ### `/chat` request step-by-step
 
 ```
-User types message
-    → Streamlit appends it to history, POSTs to /chat
-        → FastAPI reads service + provider from body
-            → langchain_service.py builds LCEL chain:
-                  ChatPromptTemplate (system + history + input)
-                  | ChatGroq / ChatMistralAI
-                  | StrOutputParser
-            → LLM API called with full message history
+User selects service=chat, provider=groq|mistral|hf
+    → Streamlit appends message to history
+    → POSTs { prompt, provider, history } to /chat
+        → FastAPI inspects provider:
+            provider=groq or mistral
+                → langchain_service.py builds LCEL chain:
+                      ChatPromptTemplate (system + history + input)
+                      | ChatGroq / ChatMistralAI
+                      | StrOutputParser
+            provider=hf
+                → hf.py calls HuggingFace Inference API
+                      (mistralai/Mistral-7B-Instruct-v0.2)
         → Response JSON returned to frontend
-    → Streamlit streams reply  character-by-character
+    → Streamlit streams reply character-by-character
 → Reply appended to history for next turn
 ```
 
@@ -251,6 +259,59 @@ User types message
     → Streamlit streams reply character-by-character
 → Reply appended to history for next turn
 ```
+
+---
+
+### Document Ingestion Pipeline
+
+```
+knowledge_base/
+├── billing.md
+├── changelog.md
+├── conversations.md
+├── DOCUMENTATION.md
+├── faq.md
+├── integrations.md
+└── troubleshooting.md
+        │
+        │  DirectoryLoader  (glob: **/*.txt, **/*.md)
+        ▼
+┌───────────────────────────────────────────────┐
+│              Raw Documents                    │
+│  LangChain Document objects with              │
+│  page_content + metadata (source path)        │
+└───────────────────────┬───────────────────────┘
+                        │
+                        │  RecursiveCharacterTextSplitter
+                        │  chunk_size=500, chunk_overlap=50
+                        ▼
+┌───────────────────────────────────────────────┐
+│                   Chunks                      │
+│  ~66 overlapping text chunks                  │
+│  preserves sentence/paragraph boundaries      │
+└───────────────────────┬───────────────────────┘
+                        │
+                        │  HuggingFaceEmbeddings
+                        │  model: all-MiniLM-L6-v2
+                        │  runs locally (no API key)
+                        ▼
+┌───────────────────────────────────────────────┐
+│              384-dim Vectors                  │
+│  one dense float vector per chunk             │
+└───────────────────────┬───────────────────────┘
+                        │
+                        │  FAISS.from_documents()
+                        ▼
+┌───────────────────────────────────────────────┐
+│           faiss_index/  (persisted)           │
+│  index.faiss  — binary vector index           │
+│  index.pkl    — docstore + metadata           │
+└───────────────────────────────────────────────┘
+```
+
+**Triggered by:** `POST /rag/rebuild` or automatically on first request if no index exists.
+
+**To add new documents:** drop `.txt` or `.md` files into `knowledge_base/`, then call `POST /rag/rebuild`.
 
 ---
 
@@ -334,9 +395,11 @@ Current knowledge base covers: account setup, ticket management, billing, troubl
 ## Frontend
 
 The Streamlit UI includes a **sidebar** with:
-- **Service selector** — `langchain` | `rag` | `mistral` | `hf`
-- **Provider selector** — `groq` | `mistral` (shown when `langchain` or `rag` is selected)
-- **Active model label** showing the current selection
+- **Service selector** — `chat` | `rag`
+- **Provider selector**
+  - `chat` → `groq` | `mistral` | `hf`
+  - `rag`  → `groq` | `mistral`
+- **Active label** always shown as `service / provider`
 
 Each assistant reply shows a `via service / provider` caption.
 

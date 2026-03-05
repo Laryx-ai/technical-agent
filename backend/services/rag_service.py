@@ -25,9 +25,11 @@ def _get_embeddings() -> HuggingFaceEmbeddings:
 
 _rag_prompt = ChatPromptTemplate.from_messages([
     ("system",
-     "You are Alex, a friendly support agent for CloudDesk. "
-     "Use the context below to answer the user's question naturally and warmly. "
-     "If the answer isn't in the context, say so honestly — don't make things up.\n\nContext:\n{context}"),
+     "You are a SaaS technical support assistant.\n\n"
+     "Use the provided documentation to answer the user question.\n\n"
+     "If the answer is not found in the documentation, "
+     "say you don't know instead of guessing.\n\n"
+     "Documentation:\n{context}"),
     MessagesPlaceholder(variable_name="history"),
     ("human", "{input}"),
 ])
