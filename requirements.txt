@@ -6,3 +6,12 @@ streamlit
 requests
 mistralai
 dotenv
+huggingface_hub
+langchain
+langchain-mistralai
+langchain-groq
+langchain-huggingface
+langchain-community
+sentence-transformers
+faiss-cpu
+pypdf

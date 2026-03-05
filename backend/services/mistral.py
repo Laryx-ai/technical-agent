@@ -1,6 +1,7 @@
 import os
 from mistralai import Mistral
 from dotenv import load_dotenv
+from mistralai.models import MessageOutputEntry
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))
 
@@ -13,6 +14,15 @@ def get_llm_response(user_message: str) -> str:
             agent_id="ag_019c6b624db775e68e2416c5d7e8f3f8",
             inputs=[{"role": "user", "content": user_message}],
         )
-        return response.outputs[0].content
+        
+        response_text = next(
+            (
+                entry.content
+                for entry in response.outputs
+                if isinstance(entry, MessageOutputEntry) and isinstance(entry.content, str)
+            ),
+            "No text response available.",
+        )
+        return response_text
     except Exception as e:
         return f"Error: {str(e)}"
