@@ -1,4 +1,4 @@
-# python-web
+# Chat Agent - Basics
 
 A full-stack AI chat application built with **FastAPI** (backend) and **Streamlit** (frontend), supporting multiple LLM providers and a RAG knowledge base via LangChain.
 
@@ -35,15 +35,21 @@ python-web/
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Streamlit |
-| Backend | FastAPI + Uvicorn |
-| LLM Orchestration | LangChain (LCEL) |
-| LLM Providers | Mistral AI, Groq (LLaMA 3.3 70B), HuggingFace |
-| Vector Store | FAISS (local, no cloud needed) |
-| Embeddings | `all-MiniLM-L6-v2` via sentence-transformers |
-| Data Validation | Pydantic |
+| Layer | Technology | Version |
+|---|---|---|
+| Frontend | Streamlit | 1.54.0 |
+| Backend | FastAPI | 0.129.0 |
+| Backend | Uvicorn | 0.41.0 |
+| LLM Orchestration | LangChain (LCEL) | 1.2.10 |
+| LLM Orchestration | langchain-core | 1.2.17 |
+| LLM Providers | Mistral AI (`langchain-mistralai`) | 1.1.1 |
+| LLM Providers | Groq — LLaMA 3.3 70B (`langchain-groq`) | 1.1.2 |
+| LLM Providers | HuggingFace (`huggingface_hub`) | 1.4.1 |
+| Vector Store | FAISS (`faiss-cpu`) | 1.13.2 |
+| Embeddings | `all-MiniLM-L6-v2` via sentence-transformers | 5.2.3 |
+| Data Validation | Pydantic | 2.12.5 |
+
+> **Python Compatibility:** Use **Python 3.12** (recommended). Python 3.14+ triggers a `UserWarning` from `langchain-core` due to dropped Pydantic V1 compatibility shims (`pydantic.v1`), and other dependencies (`faiss-cpu`, `sentence-transformers`) may not be fully tested on Python 3.14.
 
 ---
 
@@ -61,8 +67,9 @@ source venv/bin/activate     # macOS/Linux
 
 ```bash
 pip install -r requirements.txt
-pip install langchain-mistralai langchain-groq langchain-huggingface langchain-community langchain-text-splitters sentence-transformers faiss-cpu
 ```
+
+> All required packages (including `langchain-mistralai`, `langchain-groq`, `langchain-huggingface`, `langchain-community`, `sentence-transformers`, `faiss-cpu`, etc.) are already pinned in `requirements.txt`.
 
 ### 3. Configure environment variables
 
@@ -70,12 +77,21 @@ Create a `.env` file in the project root:
 
 ```env
 MISTRAL_API_KEY=your_mistral_api_key
+MISTRAL_AGENT_ID=your_mistral_agent_id
 GROQ_API_KEY=your_groq_api_key
 HF_TOKEN=your_huggingface_token
 ```
 
+| Variable | Used In | Purpose |
+|---|---|---|
+| `MISTRAL_API_KEY` | `mistral.py`, `langchain_service.py` | Authenticates all requests to Mistral |
+| `MISTRAL_AGENT_ID` | `mistral.py` only | Identifies the pre-built Mistral Agent (Conversations API). Not needed for LangChain's chat completions. |
+| `GROQ_API_KEY` | `langchain_service.py` | Authenticates requests to Groq (LLaMA 3.3 70B) |
+| `HF_TOKEN` | `hf.py` | Authenticates HuggingFace Inference API |
+
 - Get a free Groq key at https://console.groq.com
 - Get a Mistral key at https://console.mistral.ai
+- Get a Mistral Agent ID at https://console.mistral.ai/agents
 
 ---
 
@@ -167,9 +183,24 @@ Answer using the knowledge base (RAG).
 
 Rebuild the FAISS index after adding new files to `knowledge_base/`.
 
+**No request body required.**
+
 **Response:**
 ```json
 { "message": "Index rebuilt with 142 vectors." }
+```
+
+**How to call:**
+```bash
+# curl
+curl -X POST http://localhost:8000/rag/rebuild
+
+# Python
+import requests
+requests.post("http://localhost:8000/rag/rebuild")
+
+# Browser — Swagger UI
+http://localhost:8000/docs → POST /rag/rebuild → Execute
 ```
 
 ---

@@ -1,10 +1,15 @@
 import streamlit as st
 import time
-import requests as req
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "../.env"))
+
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 st.title("Technical Support Chat")
 st.caption("Hi, I'm your AI assistant.")
-st.image("https://images.unsplash.com/photo-1504384308090-c894fdcc538d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", caption="How can I assist you today?")
 
 # Service selector in sidebar
 with st.sidebar:
@@ -31,7 +36,7 @@ for i, message in enumerate(st.session_state.history):
     with st.chat_message(role):
         st.write(content)
         
-# Function for stream response. In a real implementation, this would call the backend API and stream the response as it arrives.
+# Function for stream response.
 def chat_stream(prompt):
     for char in prompt:
         yield char
@@ -47,13 +52,28 @@ if prompt := st.chat_input("Enter your message:"):
     # Call backend API — always send chat history for memory
     history = st.session_state.history[:-1]  # exclude current user message
     payload = {"prompt": prompt, "provider": provider, "history": history}
-    endpoint = "http://localhost:8000/rag" if service == "rag" else "http://localhost:8000/chat"
-    response = req.post(endpoint, json=payload)
-    if response.status_code == 200:
-        data = response.json()
-        backend_response = data.get("response", "")
-        used_service = data.get("service", service)
-        used_provider = data.get("provider")
+    endpoint = f"{BACKEND_URL}/rag" if service == "rag" else f"{BACKEND_URL}/chat"
+
+    backend_response = None
+    used_service = service
+    used_provider = provider
+
+    try:
+        with st.spinner("Thinking..."):
+            response = requests.post(endpoint, json=payload, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+            backend_response = data.get("response", "")
+            used_service = data.get("service", service)
+            used_provider = data.get("provider", provider)
+    except requests.exceptions.ConnectionError:
+        backend_response = "Error: Could not connect to the backend. Make sure the server is running."
+    except requests.exceptions.Timeout:
+        backend_response = "Error: The request timed out. The backend may be overloaded."
+    except requests.exceptions.HTTPError as e:
+        backend_response = f"Error: Backend returned an unexpected response ({e.response.status_code})."
+    except Exception as e:
+        backend_response = f"Error: {str(e)}"
 
     # Stream the assistant response while capturing the full text
     with st.chat_message("assistant"):
