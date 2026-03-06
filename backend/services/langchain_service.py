@@ -27,16 +27,19 @@ _providers = {
     "groq": ChatGroq(model="llama-3.3-70b-versatile", api_key=SecretStr(os.getenv("GROQ_API_KEY") or "")),
 }
 
-_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system",
-         "You are Alex, a friendly and knowledgeable support agent for CloudDesk. "
-         "Be warm, conversational, and concise. Use the user's name if they mention it. "
-         "Acknowledge their frustration if they seem stuck. Never say you are an AI unless directly asked."),
-        MessagesPlaceholder(variable_name="history"),
-        ("human", "{input}"),
-    ]
-)
+
+def _get_chat_prompt() -> ChatPromptTemplate:
+    """Build the system prompt dynamically from agent config."""
+    # Import here to avoid circular imports at module level
+    from .agent_config_service import resolve_system_prompt
+    system_text = resolve_system_prompt()
+    return ChatPromptTemplate.from_messages(
+        [
+            ("system", system_text),
+            MessagesPlaceholder(variable_name="history"),
+            ("human", "{input}"),
+        ]
+    )
 
 
 def _build_history(history: list[dict]) -> list:
@@ -54,7 +57,8 @@ def get_langchain_response(user_message: str, provider: str = "mistral", history
         llm = _providers.get(provider)
         if llm is None:
             return f"Error: Unknown provider '{provider}'. Choose from: {list(_providers.keys())}"
-        chain = _prompt | llm | StrOutputParser()
+        prompt = _get_chat_prompt()
+        chain = prompt | llm | StrOutputParser()
         return chain.invoke({"input": user_message, "history": _build_history(history or [])})
     except Exception as e:
         return f"Error: {str(e)}"
