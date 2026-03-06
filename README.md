@@ -312,3 +312,74 @@ That's it — no code changes required.
 - Chat history displayed in a **fixed-height (490 px) scrollable container** — layout never shifts as messages accumulate
 - Input box anchored **directly below** the message area in a consistent position
 - **Clear conversation** button between the message list and input bar
+
+---
+
+## Document Parsing — Roadmap
+
+The current knowledge base only accepts plain `.md` and `.txt` files. The plan below outlines
+phased support for richer document formats so teams can upload their existing content without
+manual conversion.
+
+### Phase 1 — Structured text (next)
+
+| Format | Library | Notes |
+|---|---|---|
+| PDF | `pypdf` or `pdfminer.six` | Extract text per page; skip scanned/image-only PDFs |
+| DOCX | `python-docx` | Paragraphs + tables; strip headers/footers |
+| CSV / XLSX | `pandas` | Flatten rows into `field: value` text chunks |
+
+Implementation touch-points:
+- `kb_service.py` — add format detection by MIME type / extension before writing to `knowledge_base/`
+- `POST /kb/documents/upload-file` — accept the new extensions in the `type=` filter
+- Knowledge Base page — update the `st.file_uploader` accepted types list
+
+### Phase 2 — Rich / scanned documents
+
+| Format | Library | Notes |
+|---|---|---|
+| Scanned PDF / images | `pytesseract` + `Pillow` | OCR fallback when no text layer is detected |
+| PowerPoint | `python-pptx` | Extract slide text and speaker notes |
+| HTML / web pages | `beautifulsoup4` | Strip tags, keep visible text |
+
+### Phase 3 — Remote sources
+
+| Source | Approach | Notes |
+|---|---|---|
+| Confluence pages | Confluence REST API | Fetch page body as storage-format HTML, parse with BS4 |
+| Notion docs | Notion API | Traverse block tree, export as Markdown |
+| Google Docs | Google Drive API | Export as plain text or DOCX then parse via Phase 1 |
+| GitHub repos | GitHub API / `gitpython` | Clone and index `.md` / `.rst` files from a repo |
+
+### Chunking strategy (applies to all phases)
+
+All parsed text will be split into overlapping chunks before embedding:
+
+```
+chunk_size    = 512 tokens
+chunk_overlap = 64  tokens
+splitter      = RecursiveCharacterTextSplitter (LangChain)
+```
+
+Metadata stored per chunk: `filename`, `page` (where applicable), `chunk_index`, `char_offset`.
+
+### Required additions to `requirements.txt`
+
+```
+# Phase 1
+pypdf>=4.0.0
+python-docx>=1.1.0
+pandas>=2.0.0
+openpyxl>=3.1.0        # XLSX support for pandas
+
+# Phase 2
+pytesseract>=0.3.10
+Pillow>=10.0.0
+python-pptx>=0.6.23
+beautifulsoup4>=4.12.0
+
+# Phase 3 (as needed)
+atlassian-python-api>=3.41.0
+notion-client>=2.2.1
+google-api-python-client>=2.100.0
+```
