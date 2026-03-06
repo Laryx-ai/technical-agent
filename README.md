@@ -1,5 +1,16 @@
 # Chat Agent - Basics
 
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.129.0-009688?logo=fastapi&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.54.0-FF4B4B?logo=streamlit&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-1.2.10-1C3C3C?logo=langchain&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F55036?logo=groq&logoColor=white)
+![Mistral AI](https://img.shields.io/badge/Mistral_AI-latest-FF7000?logo=mistral&logoColor=white)
+![HuggingFace](https://img.shields.io/badge/HuggingFace-1.4.1-FFD21E?logo=huggingface&logoColor=black)
+![FAISS](https://img.shields.io/badge/FAISS-1.13.2-0467DF?logoColor=white)
+![Pydantic](https://img.shields.io/badge/Pydantic-2.12.5-E92063?logo=pydantic&logoColor=white)
+![Uvicorn](https://img.shields.io/badge/Uvicorn-0.41.0-499848?logoColor=white)
+
 A full-stack AI chat application built with **FastAPI** (backend) and **Streamlit** (frontend), supporting multiple LLM providers and a RAG knowledge base via LangChain.
 
 ---
