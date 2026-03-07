@@ -1,4 +1,7 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+import os
+from fastapi import FastAPI, HTTPException, UploadFile, File, Security, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel
 from services import (
     get_hf_response,
@@ -24,6 +27,30 @@ app = FastAPI(
     ),
     version="2.0.0",
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------------------------------------------------------------------
+# Optional API key authentication
+# Set API_KEY in your .env to enable.  Leave blank (or unset) to disable.
+# ---------------------------------------------------------------------------
+
+_API_KEY_VALUE = os.getenv("API_KEY", "").strip()
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def verify_api_key(key: str | None = Security(_api_key_header)):
+    """Dependency — passes if API_KEY is not configured, or if the header matches."""
+    if not _API_KEY_VALUE:
+        return  # auth disabled
+    if key != _API_KEY_VALUE:
+        raise HTTPException(status_code=403, detail="Invalid or missing X-API-Key header.")
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +103,7 @@ class KBDocumentUpload(BaseModel):
 # ---------------------------------------------------------------------------
 
 @app.get("/health", tags=["System"])
-def health():
+def health(auth: None = Depends(verify_api_key)):
     """Liveness check — returns status and current agent identity."""
     config = get_config()
     return {
@@ -92,7 +119,7 @@ def health():
 # ---------------------------------------------------------------------------
 
 @app.post("/chat", response_model=ChatRes, tags=["Chat"])
-def chat(req: ChatReq):
+def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
     """Open-ended chat powered by the configured LLM (no KB lookup)."""
     if req.provider == "hf":
         response_msg = get_hf_response(req.prompt)
@@ -123,7 +150,7 @@ def chat(req: ChatReq):
 
 
 @app.post("/rag", response_model=ChatRes, tags=["Chat"])
-def rag_chat(req: RagReq):
+def rag_chat(req: RagReq, auth: None = Depends(verify_api_key)):
     """Knowledge base-grounded chat using RAG + intent-aware prompting."""
     intent_result = classify_intent(req.prompt)
     response_msg = get_rag_response(req.prompt, provider=req.provider, history=req.history)
@@ -138,7 +165,7 @@ def rag_chat(req: RagReq):
 
 
 @app.post("/rag/rebuild", tags=["Chat"])
-def rag_rebuild():
+def rag_rebuild(auth: None = Depends(verify_api_key)):
     """Rebuild the FAISS vector index from the current knowledge base documents."""
     result = rebuild_index()
     return {"message": result}
@@ -149,7 +176,7 @@ def rag_rebuild():
 # ---------------------------------------------------------------------------
 
 @app.post("/intent", tags=["Intent"])
-def detect_intent(req: IntentReq):
+def detect_intent(req: IntentReq, auth: None = Depends(verify_api_key)):
     """Classify the intent of a query without generating an answer."""
     result = classify_intent(req.text)
     return {
@@ -165,13 +192,13 @@ def detect_intent(req: IntentReq):
 # ---------------------------------------------------------------------------
 
 @app.get("/agent/config", tags=["Agent Config"])
-def get_agent_config():
+def get_agent_config(auth: None = Depends(verify_api_key)):
     """Retrieve the current per-client agent configuration."""
     return get_config()
 
 
 @app.post("/agent/config", tags=["Agent Config"])
-def set_agent_config(updates: AgentConfigUpdate):
+def set_agent_config(updates: AgentConfigUpdate, auth: None = Depends(verify_api_key)):
     """
     Update agent configuration fields.  Only supplied fields are changed.
     Allows SaaS clients to customise agent name, company, system prompt, etc.
@@ -184,14 +211,14 @@ def set_agent_config(updates: AgentConfigUpdate):
 
 
 @app.post("/agent/config/reset", tags=["Agent Config"])
-def reset_agent_config():
+def reset_agent_config(auth: None = Depends(verify_api_key)):
     """Restore factory default agent configuration."""
     defaults = reset_config()
     return {"message": "Configuration reset to defaults.", "config": defaults}
 
 
 @app.get("/agent/welcome", tags=["Agent Config"])
-def get_welcome():
+def get_welcome(auth: None = Depends(verify_api_key)):
     """Return the resolved welcome message (with agent_name and company_name substituted)."""
     return {"message": resolve_welcome_message()}
 
@@ -201,13 +228,13 @@ def get_welcome():
 # ---------------------------------------------------------------------------
 
 @app.get("/kb/documents", tags=["Knowledge Base"])
-def list_kb_documents():
+def list_kb_documents(auth: None = Depends(verify_api_key)):
     """List all documents in the knowledge base with metadata."""
     return {"documents": list_documents()}
 
 
 @app.get("/kb/documents/{filename}", tags=["Knowledge Base"])
-def read_kb_document(filename: str):
+def read_kb_document(filename: str, auth: None = Depends(verify_api_key)):
     """Return the raw text content of a single knowledge base document."""
     try:
         content = get_document(filename)
@@ -219,7 +246,7 @@ def read_kb_document(filename: str):
 
 
 @app.post("/kb/documents", tags=["Knowledge Base"])
-def upload_kb_document(doc: KBDocumentUpload):
+def upload_kb_document(doc: KBDocumentUpload, auth: None = Depends(verify_api_key)):
     """
     Upload a new document (or overwrite an existing one) in the knowledge base.
     Accepts plain text or Markdown.  After uploading, call /rag/rebuild to
@@ -233,7 +260,7 @@ def upload_kb_document(doc: KBDocumentUpload):
 
 
 @app.post("/kb/documents/upload-file", tags=["Knowledge Base"])
-async def upload_kb_file(file: UploadFile = File(...)):
+async def upload_kb_file(file: UploadFile = File(...), auth: None = Depends(verify_api_key)):
     """
     Upload a .md or .txt file directly.  Multipart form upload.
     After uploading, call /rag/rebuild to update the vector index.
@@ -255,7 +282,7 @@ async def upload_kb_file(file: UploadFile = File(...)):
 
 
 @app.delete("/kb/documents/{filename}", tags=["Knowledge Base"])
-def remove_kb_document(filename: str):
+def remove_kb_document(filename: str, auth: None = Depends(verify_api_key)):
     """
     Delete a document from the knowledge base.
     Call /rag/rebuild afterwards to update the vector index.

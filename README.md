@@ -267,6 +267,79 @@ docker-compose down
 
 ---
 
+## Backend API Reusability
+
+The FastAPI backend is **fully decoupled from the Streamlit frontend** and can be consumed by any HTTP client. This makes it straightforward to integrate the support agent into existing products, services, or custom UIs without touching the backend code.
+
+### Headless / API-only usage
+
+Run the backend standalone and call it directly from any application:
+
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+| Use case | How |
+|---|---|
+| Custom React / Vue / Angular frontend | Replace the Streamlit app entirely — call the same REST endpoints |
+| Mobile app (iOS / Android) | Call `/rag` or `/chat` from any HTTP client |
+| Slack / Teams bot | POST user messages to `/rag`, forward the response |
+| CI pipeline knowledge checks | Automate `/rag` calls in test scripts to validate KB coverage |
+| Zapier / Make webhook | Point an HTTP action at any `/chat` or `/rag` endpoint |
+| Embedded widget | Wrap the RAG endpoint in a thin JS widget and embed it in any webpage |
+
+### Key integration endpoints
+
+```
+POST /chat          — stateless LLM chat, no KB lookup
+POST /rag           — grounded answer + intent label from the knowledge base
+GET  /agent/config  — read current agent identity at runtime
+POST /agent/config  — update agent identity/system-prompt without restart
+GET  /kb/documents  — list all knowledge-base documents
+POST /kb/documents/upload-file  — add new documents programmatically
+POST /rag/rebuild   — re-index after uploading new documents
+```
+
+### Example: calling the RAG endpoint from Python
+
+```python
+import requests
+
+res = requests.post(
+    "http://localhost:8000/rag",
+    json={
+        "prompt": "How do I reset my password?",
+        "provider": "groq",
+        "history": [],          # pass previous turns for multi-turn support
+    },
+)
+data = res.json()
+print(data["response"])     # grounded answer
+print(data["intent"])       # e.g. "Account & Login"
+```
+
+### Example: calling from JavaScript / TypeScript
+
+```ts
+const res = await fetch("http://localhost:8000/rag", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ prompt: "What's included in the Pro plan?", provider: "groq", history: [] }),
+});
+const { response, intent } = await res.json();
+```
+
+### Authentication (recommended before production)
+
+The backend ships **without** authentication to keep the zero-config demo simple. Before exposing it publicly, add one of:
+
+- **API key header** — FastAPI `Security` dependency that checks a secret `X-API-Key` header
+- **OAuth 2 / JWT** — `fastapi-users` or a reverse proxy (Nginx, Caddy, Traefik) in front of the service
+- **Network isolation** — keep the backend on a private VPC or internal Docker network; only expose the frontend
+
+---
+
 ## Customising for a New SaaS Client
 
 1. **Update agent identity** — via **Settings > Agent Configuration** or `POST /agent/config`:
