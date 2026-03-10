@@ -54,7 +54,7 @@ def list_documents() -> list[dict]:
         docs.append({
             "filename": fname,
             "size_bytes": stat.st_size,
-            "modified": datetime.utcfromtimestamp(stat.st_mtime).isoformat() + "Z",
+            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat() + "Z",
         })
     return docs
 
@@ -73,7 +73,7 @@ def save_document(filename: str, content: str) -> dict:
     return {
         "filename": safe_name,
         "size_bytes": stat.st_size,
-        "modified": datetime.utcfromtimestamp(stat.st_mtime).isoformat() + "Z",
+        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat() + "Z",
     }
 
 

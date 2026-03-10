@@ -3,13 +3,12 @@ from utils import api, sidebar_agent_info
 
 st.set_page_config(
     page_title="Settings — SaaS Support Agent",
-    page_icon="⚙️",
     layout="wide",
 )
 
 sidebar_agent_info()
 
-st.title("⚙️ Settings")
+st.title("Settings")
 st.caption("Configure model behaviour and agent identity. Changes take effect immediately.")
 
 # Load current agent config
@@ -44,7 +43,7 @@ st.caption(f"Chat page will use: `{st.session_state['_service']} / {st.session_s
 st.divider()
 
 # Agent Configuration
-st.subheader("🤖 Agent Configuration")
+st.subheader("Agent Configuration")
 st.caption("Customise the agent's identity and LLM behaviour for your SaaS product.")
 
 with st.form("agent_config_form"):
@@ -83,8 +82,8 @@ with st.form("agent_config_form"):
     )
 
     save_col, reset_col = st.columns([3, 1])
-    submitted = save_col.form_submit_button("💾 Save Configuration", type="primary", use_container_width=True)
-    reset_clicked = reset_col.form_submit_button("↩️ Reset to Defaults", use_container_width=True)
+    submitted = save_col.form_submit_button("Save Configuration", type="primary", use_container_width=True)
+    reset_clicked = reset_col.form_submit_button("Reset to Defaults", use_container_width=True)
 
 if submitted:
     updates = {

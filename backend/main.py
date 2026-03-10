@@ -36,13 +36,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
 # Optional API key authentication
 # Set API_KEY in your .env to enable.  Leave blank (or unset) to disable.
-# ---------------------------------------------------------------------------
 
 _API_KEY_VALUE = os.getenv("API_KEY", "").strip()
-_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+_api_key_header = APIKeyHeader(name="X-Client-Key", auto_error=False)
 
 
 def verify_api_key(key: str | None = Security(_api_key_header)):
@@ -52,10 +50,7 @@ def verify_api_key(key: str | None = Security(_api_key_header)):
     if key != _API_KEY_VALUE:
         raise HTTPException(status_code=403, detail="Invalid or missing X-API-Key header.")
 
-
-# ---------------------------------------------------------------------------
 # Request / Response models
-# ---------------------------------------------------------------------------
 
 class ChatReq(BaseModel):
     prompt: str
@@ -97,10 +92,7 @@ class KBDocumentUpload(BaseModel):
     filename: str
     content: str
 
-
-# ---------------------------------------------------------------------------
 # Health
-# ---------------------------------------------------------------------------
 
 @app.get("/health", tags=["System"])
 def health(auth: None = Depends(verify_api_key)):
@@ -113,10 +105,7 @@ def health(auth: None = Depends(verify_api_key)):
         "version": "2.0.0",
     }
 
-
-# ---------------------------------------------------------------------------
 # Chat endpoints
-# ---------------------------------------------------------------------------
 
 @app.post("/chat", response_model=ChatRes, tags=["Chat"])
 def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
@@ -171,9 +160,7 @@ def rag_rebuild(auth: None = Depends(verify_api_key)):
     return {"message": result}
 
 
-# ---------------------------------------------------------------------------
 # Intent endpoint
-# ---------------------------------------------------------------------------
 
 @app.post("/intent", tags=["Intent"])
 def detect_intent(req: IntentReq, auth: None = Depends(verify_api_key)):
@@ -186,10 +173,7 @@ def detect_intent(req: IntentReq, auth: None = Depends(verify_api_key)):
         "confidence": result.confidence,
     }
 
-
-# ---------------------------------------------------------------------------
 # Agent configuration endpoints
-# ---------------------------------------------------------------------------
 
 @app.get("/agent/config", tags=["Agent Config"])
 def get_agent_config(auth: None = Depends(verify_api_key)):
@@ -223,9 +207,7 @@ def get_welcome(auth: None = Depends(verify_api_key)):
     return {"message": resolve_welcome_message()}
 
 
-# ---------------------------------------------------------------------------
 # Knowledge base management endpoints
-# ---------------------------------------------------------------------------
 
 @app.get("/kb/documents", tags=["Knowledge Base"])
 def list_kb_documents(auth: None = Depends(verify_api_key)):
@@ -275,10 +257,10 @@ async def upload_kb_file(file: UploadFile = File(...), auth: None = Depends(veri
         content = content_bytes.decode("utf-8")
         meta = save_document(file.filename or "upload.txt", content)
         return {"message": "File uploaded.", "document": meta}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="File must be UTF-8 encoded text.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.delete("/kb/documents/{filename}", tags=["Knowledge Base"])

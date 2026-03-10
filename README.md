@@ -61,6 +61,12 @@ technical-agent/
 │       ├── intent_service.py         # Query intent classification (keyword + heuristic)
 │       ├── agent_config_service.py   # Per-client agent configuration management
 │       └── kb_service.py             # Knowledge base document CRUD
+│   └── tests/
+│       ├── conftest.py               # Shared FastAPI TestClient fixture
+│       ├── test_api.py               # Endpoint integration tests (all routes)
+│       ├── test_intent_service.py    # Intent classifier unit tests
+│       ├── test_kb_service.py        # KB service unit tests
+│       └── test_agent_config_service.py  # Agent config unit tests
 └── frontend/
     ├── app.py                        # st.navigation() router — entry point
     ├── utils.py                      # Shared helpers: api(), intent_badge(), sidebar_agent_info()
@@ -334,7 +340,7 @@ const { response, intent } = await res.json();
 
 The backend ships **without** authentication to keep the zero-config demo simple. Before exposing it publicly, add one of:
 
-- **API key header** — FastAPI `Security` dependency that checks a secret `X-API-Key` header
+- **API key header** — FastAPI `Security` dependency that checks a secret `X-Client-Key` header
 - **OAuth 2 / JWT** — `fastapi-users` or a reverse proxy (Nginx, Caddy, Traefik) in front of the service
 - **Network isolation** — keep the backend on a private VPC or internal Docker network; only expose the frontend
 
@@ -456,3 +462,79 @@ atlassian-python-api>=3.41.0
 notion-client>=2.2.1
 google-api-python-client>=2.100.0
 ```
+
+---
+
+## Testing
+
+The project ships with a full pytest test suite that covers all API endpoints and every backend service. **No API keys or running services are required** — all LLM / RAG calls are mocked, and file-system operations are redirected to temporary directories.
+
+### Test structure
+
+```
+backend/tests/
+├── __init__.py
+├── conftest.py                   # shared FastAPI TestClient fixture
+├── test_api.py                   # 29 endpoint tests (all routes in main.py)
+├── test_intent_service.py        # 34 unit tests — intent classification
+├── test_kb_service.py            # 28 unit tests — KB document CRUD & path-safety
+└── test_agent_config_service.py  # 20 unit tests — config load/save/reset/resolve
+pytest.ini                        # testpaths + pythonpath configured
+```
+
+### pytest.ini
+
+`pytest.ini` lives at the project root and configures three things:
+
+| Option | Value | Purpose |
+|---|---|---|
+| `testpaths` | `backend/tests` | Tells pytest where to find tests when run from the project root — prevents it scanning the frontend, knowledge base, etc. |
+| `pythonpath` | `backend` | Adds `backend/` to `sys.path` so test files can import `from services.intent_service import ...` or `from main import app` without relative-import hacks |
+| `addopts` | `-v --tb=short` | Applies verbose output and compact tracebacks automatically on every run |
+
+Without this file you would need to pass all of these on the command line every time:
+```bash
+python -m pytest backend/tests -v --tb=short
+```
+
+### Running the tests
+
+```bash
+# From the workspace root — run the full suite
+python -m pytest
+
+# Run with verbose output
+python -m pytest -v
+
+# Run a single file
+python -m pytest backend/tests/test_intent_service.py -v
+
+# Run a single test class or function
+python -m pytest backend/tests/test_api.py::test_health_returns_ok -v
+```
+
+### Test dependencies
+
+`pytest` and `httpx` (required by FastAPI's `TestClient`) are listed in `requirements.txt` and installed automatically with `pip install -r requirements.txt`.
+
+```
+pytest>=8.0
+httpx
+```
+
+### What is covered
+
+| File | Scope | Mocking strategy |
+|---|---|---|
+| `test_api.py` | All REST endpoints — happy paths, error cases, auth | `unittest.mock.patch` on service functions; `monkeypatch` for env vars |
+| `test_intent_service.py` | `classify_intent`, `get_intent_context` | None — pure keyword heuristics, no I/O |
+| `test_kb_service.py` | `_safe_filename`, `save_document`, `get_document`, `delete_document`, `list_documents` | `tmp_path` + `monkeypatch` redirect `_KB_PATH` |
+| `test_agent_config_service.py` | `get_config`, `update_config`, `reset_config`, `resolve_system_prompt`, `resolve_welcome_message` | `tmp_path` + `monkeypatch` redirect `_CONFIG_PATH` |
+
+### API key authentication tests
+
+The auth dependency is tested by reloading the `main` module with a monkeypatched `API_KEY` environment variable:
+
+- No `API_KEY` set → all requests pass through (open mode)
+- `API_KEY` set, no header → `403 Forbidden`
+- `API_KEY` set, correct `X-Client-Key` header → `200 OK`
