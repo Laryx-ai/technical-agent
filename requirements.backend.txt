@@ -13,6 +13,7 @@ langchain-text-splitters==1.1.1
 langchain-groq==1.1.2
 langchain-mistralai==1.1.1
 langchain-huggingface==1.2.1
+loguru==0.7.3
 groq==0.37.1
 mistralai==1.12.2
 huggingface_hub==1.4.1
