@@ -28,7 +28,7 @@ An AI-powered SaaS technical support agent with **RAG-grounded answers**, **inte
 | **Two-Step Chat Render** | User message appears instantly; assistant response is shown after backend completion with spinner feedback |
 | **Cached Sidebar Status** | Backend status and KB doc count are cached briefly to reduce rerun latency |
 | **Auto RAG Index Freshness** | KB changes are detected via signature checks and stale FAISS indexes are rebuilt automatically |
-| **Docker Deployment** | Single `docker-compose up` for local or cloud deployment |
+| **Docker Deployment** | Single `docker compose up` for local or cloud deployment |
 
 ---
 
@@ -95,7 +95,7 @@ technical-agent/
 | Embeddings | `all-MiniLM-L6-v2` via sentence-transformers | 5.2.3 |
 | Intent Recognition | Custom keyword + heuristic classifier | built-in |
 | Data Validation | Pydantic | 2.12.5 |
-| Containerisation | Docker + docker-compose | — |
+| Containerisation | Docker + docker compose | — |
 
 ---
 
@@ -118,9 +118,14 @@ pip install -r requirements.txt
 ### 3. Configure environment variables
 
 ```bash
+# Windows (PowerShell)
+Copy-Item .env.example .env
+
+# macOS/Linux
 cp .env.example .env
-# Fill in your API keys in .env
 ```
+
+Fill in your API keys in `.env`.
 
 | Variable | Purpose |
 |---|---|
@@ -128,7 +133,20 @@ cp .env.example .env
 | `MISTRAL_API_KEY` | Mistral AI chat + embeddings |
 | `MISTRAL_AGENT_ID` | Mistral Agent (optional — only for the Conversations API path) |
 | `HF_TOKEN` | HuggingFace Inference API |
+| `API_KEY` | Optional backend auth key. If set, every request must include `X-Client-Key` |
 | `BACKEND_URL` | Frontend → backend URL (default: `http://localhost:8000`) |
+
+### 4. Quick smoke test (optional)
+
+```bash
+curl http://localhost:8000/health
+```
+
+If `API_KEY` is set:
+
+```bash
+curl -H "X-Client-Key: <your_api_key>" http://localhost:8000/health
+```
 
 ---
 
@@ -180,6 +198,8 @@ docker compose down
 ---
 
 ## API Reference
+
+All endpoints are open by default. If you configure `API_KEY` in `.env`, include header `X-Client-Key: <API_KEY>` on every request.
 
 ### System
 
@@ -391,7 +411,7 @@ That's it — no code changes required.
 ### Active state (after first message)
 - Chat history displayed in a **fixed-height (490 px) scrollable container** — layout never shifts as messages accumulate
 - Input box anchored **directly below** the message area in a consistent position
-- **Clear conversation** button between the message list and input bar
+- **Clear** button between the message list and input bar
 
 ---
 

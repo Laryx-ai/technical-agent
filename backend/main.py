@@ -1,4 +1,5 @@
 import os
+from services.log_config import logger
 from fastapi import FastAPI, HTTPException, UploadFile, File, Security, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
@@ -49,6 +50,19 @@ def verify_api_key(key: str | None = Security(_api_key_header)):
         return  # auth disabled
     if key != _API_KEY_VALUE:
         raise HTTPException(status_code=403, detail="Invalid or missing X-Client-Key header.")
+
+
+def _clip(text: str, limit: int = 260) -> str:
+    if not text:
+        return ""
+    normalized = " ".join(text.split())
+    return normalized[:limit] + ("..." if len(normalized) > limit else "")
+
+
+def _normalize(text: str) -> str:
+    if not text:
+        return ""
+    return " ".join(text.split())
 
 # Request / Response models
 
@@ -109,9 +123,13 @@ def health(auth: None = Depends(verify_api_key)):
 @app.post("/chat", response_model=ChatRes, tags=["Chat"])
 def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
     """Open-ended chat powered by the configured LLM (no KB lookup)."""
+    logger.info(f"/chat endpoint called: provider={req.provider}, prompt={_clip(req.prompt)}")
     if req.provider == "hf":
         response_msg = get_hf_response(req.prompt)
         intent_result = classify_intent(req.prompt)
+        logger.info(
+            f"/chat response: provider={req.provider}, intent={intent_result.intent}, response={_normalize(response_msg)}"
+        )
         return {
             "response": response_msg,
             "service": "chat",
@@ -123,9 +141,18 @@ def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
         response_msg = get_langchain_response(req.prompt, provider=req.provider, history=req.history)
     else:
         response_msg = f"Unknown provider '{req.provider}'. Choose from: groq, mistral, hf"
+        logger.warning(f"/chat response: provider={req.provider}, response={_normalize(response_msg)}")
         return {"response": response_msg, "service": "chat", "provider": req.provider}
 
     intent_result = classify_intent(req.prompt)
+    if response_msg.startswith("Error:"):
+        logger.error(
+            f"/chat response: provider={req.provider}, intent={intent_result.intent}, response={_normalize(response_msg)}"
+        )
+    else:
+        logger.info(
+            f"/chat response: provider={req.provider}, intent={intent_result.intent}, response={_normalize(response_msg)}"
+        )
     return {
         "response": response_msg,
         "service": "chat",
@@ -138,8 +165,17 @@ def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
 @app.post("/rag", response_model=ChatRes, tags=["Chat"])
 def rag_chat(req: RagReq, auth: None = Depends(verify_api_key)):
     """Knowledge base-grounded chat using RAG + intent-aware prompting."""
+    logger.info(f"/rag endpoint called: provider={req.provider}, prompt={_clip(req.prompt)}")
     intent_result = classify_intent(req.prompt)
     response_msg = get_rag_response(req.prompt, provider=req.provider, history=req.history)
+    if response_msg.startswith("Error:"):
+        logger.error(
+            f"/rag response: provider={req.provider}, intent={intent_result.intent}, response={_normalize(response_msg)}"
+        )
+    else:
+        logger.info(
+            f"/rag response: provider={req.provider}, intent={intent_result.intent}, response={_normalize(response_msg)}"
+        )
     return {
         "response": response_msg,
         "service": "rag",

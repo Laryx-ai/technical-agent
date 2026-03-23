@@ -74,11 +74,13 @@ with st.form("agent_config_form"):
         "RAG Top-K (retrieved chunks)",
         min_value=1, max_value=10,
         value=int(cfg.get("rag_top_k", 4)),
+        help="Number of knowledge base chunks to retrieve for RAG responses. Higher may improve accuracy but increase latency and cost.",
     )
     max_history = st.number_input(
         "Max conversation history turns",
         min_value=1, max_value=50,
         value=int(cfg.get("max_history_turns", 10)),
+        help="Number of recent conversation turns to keep in context. Higher may improve response quality but increase latency and cost.",
     )
 
     save_col, reset_col = st.columns([3, 1])

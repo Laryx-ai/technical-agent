@@ -4,3 +4,6 @@ __pycache__/
 .streamlit/
 venv/
 .env
+backend/logs/
+backend/services/app.log
+*.log

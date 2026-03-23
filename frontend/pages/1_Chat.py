@@ -102,7 +102,7 @@ else:
         st.session_state.pending = None
         st.rerun()
 
-    if st.button("Clear conversation", key="clear_chat"):
+    if st.button("Clear", key="clear_chat"):
         st.session_state.history = []
         st.session_state.prefill = ""
         st.session_state.pending = None

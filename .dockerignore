@@ -2,12 +2,12 @@
 .git
 .gitignore
 
-# Local env / secrets
+# Env
 .env
 .env.*
 !.env.example
 
-# Python caches / virtualenvs
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -21,7 +21,7 @@ htmlcov/
 venv/
 env/
 
-# Editor / OS noise
+# Editors
 .vscode/
 .idea/
 *.swp
@@ -29,17 +29,39 @@ env/
 Thumbs.db
 .DS_Store
 
-# Build artifacts
+# Build
 build/
 dist/
 *.egg-info/
 
-# Large/generated runtime data (mounted as volumes in compose)
-backend/faiss_index/
-backend/agent_config.json
-
-# Node (if present)
+# Node
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# CRITICAL: caches
+.cache
+**/.cache
+
+# ML models
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.onnx
+*.h5
+
+# vector DB / embeddings
+*.faiss
+*.pkl
+*.db
+
+# Backend runtime data
+backend/faiss_index/
+backend/**/*.faiss
+backend/**/*.pkl
+backend/knowledge_base/
+
+# Optional (if safe)
+backend/**/*.json
