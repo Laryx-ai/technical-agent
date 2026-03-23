@@ -23,10 +23,11 @@ An AI-powered SaaS technical support agent with **RAG-grounded answers**, **inte
 | **Agent Configuration** | Customise agent name, company, system prompt, and LLM settings per client |
 | **Knowledge Base Manager** | Upload, view, and delete `.md`/`.txt` documents via the UI or REST API |
 | **Multi-Provider LLM** | Groq (LLaMA 3.3 70B), Mistral AI, HuggingFace Inference API |
-| **Conversation Memory** | Full multi-turn history passed to every LLM call |
+| **Conversation Memory** | Recent multi-turn history window passed to each LLM call (configurable via `max_history_turns`) |
 | **Multi-Page UI** | `st.navigation()` router with Chat, Knowledge Base, Settings, and Docs pages |
-| **Two-Step Chat Render** | User message appears instantly; agent response streams in with a spinner — no full-page reload |
-| **Live Sidebar Status** | Backend online/offline indicator and KB document count visible on every page |
+| **Two-Step Chat Render** | User message appears instantly; assistant response is shown after backend completion with spinner feedback |
+| **Cached Sidebar Status** | Backend status and KB doc count are cached briefly to reduce rerun latency |
+| **Auto RAG Index Freshness** | KB changes are detected via signature checks and stale FAISS indexes are rebuilt automatically |
 | **Docker Deployment** | Single `docker-compose up` for local or cloud deployment |
 
 ---
@@ -69,7 +70,7 @@ technical-agent/
 │       └── test_agent_config_service.py  # Agent config unit tests
 └── frontend/
     ├── app.py                        # st.navigation() router — entry point
-    ├── utils.py                      # Shared helpers: api(), intent_badge(), sidebar_agent_info()
+    ├── utils.py                      # Shared helpers: api(), sidebar_agent_info(), cached sidebar reads
     └── pages/
         ├── 1_Chat.py                 # Two-state chat UI (welcome screen / chat history)
         ├── 2_Knowledge_Base.py       # Upload, view, delete documents; rebuild FAISS index
@@ -160,16 +161,16 @@ Runs at `http://localhost:8501`
 
 ```bash
 # Build and start both services
-docker-compose up --build
+docker compose up --build
 
 # Detached mode
-docker-compose up -d --build
+docker compose up -d --build
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop
-docker-compose down
+docker compose down
 ```
 
 - Backend exposed on **port 8000**
@@ -192,7 +193,7 @@ docker-compose down
 |---|---|---|
 | `POST` | `/chat` | Open-ended LLM chat (groq / mistral / hf) |
 | `POST` | `/rag` | Knowledge base-grounded chat with intent detection |
-| `POST` | `/rag/rebuild` | Rebuild FAISS index from knowledge_base/ |
+| `POST` | `/rag/rebuild` | Force rebuild FAISS index from knowledge_base/ |
 
 ### Intent
 
@@ -304,7 +305,7 @@ GET  /agent/config  — read current agent identity at runtime
 POST /agent/config  — update agent identity/system-prompt without restart
 GET  /kb/documents  — list all knowledge-base documents
 POST /kb/documents/upload-file  — add new documents programmatically
-POST /rag/rebuild   — re-index after uploading new documents
+POST /rag/rebuild   — optional manual re-index after uploading new documents
 ```
 
 ### Example: calling the RAG endpoint from Python
@@ -360,7 +361,7 @@ The backend ships **without** authentication to keep the zero-config demo simple
 
 2. **Upload product documentation** — via the **Knowledge Base** page or `POST /kb/documents`.
 
-3. **Rebuild the vector index** — click **Rebuild Index** in the Knowledge Base page or call `POST /rag/rebuild`.
+3. **Rebuild the vector index (optional)** — use **Rebuild Index** or `POST /rag/rebuild` for immediate refresh; otherwise stale-index detection will auto-rebuild on next RAG query.
 
 That's it — no code changes required.
 
@@ -368,15 +369,15 @@ That's it — no code changes required.
 
 ## Intent Categories
 
-| Intent | Emoji | Triggered by |
-|---|---|---|
-| Billing & Subscription | 💳 | pricing, invoice, payment, plan, upgrade |
-| Troubleshooting | 🔧 | error, not working, crash, fix, issue |
-| Account & Login | 🔐 | password, login, 2FA, locked, account |
-| Integrations | 🔗 | Slack, Teams, Zapier, webhook, sync |
-| API & Developer | ⚙️ | API, endpoint, rate limit, token, OAuth |
-| Feature Request | 💡 | feature, suggest, would like, improve |
-| General Inquiry | 💬 | everything else |
+| Intent | Triggered by |
+|---|---|
+| Billing & Subscription | pricing, invoice, payment, plan, upgrade |
+| Troubleshooting | error, not working, crash, fix, issue |
+| Account & Login | password, login, 2FA, locked, account |
+| Integrations | Slack, Teams, Zapier, webhook, sync |
+| API & Developer | API, endpoint, rate limit, token, OAuth |
+| Feature Request | feature, suggest, would like, improve |
+| General Inquiry | everything else |
 
 ---
 

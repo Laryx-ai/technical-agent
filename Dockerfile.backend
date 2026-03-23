@@ -1,20 +1,13 @@
-FROM python:3.11.13-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
+ENV PIP_ROOT_USER_ACTION=ignore
 
-# Install system dependencies for FAISS and sentence-transformers
-# Run apt-get upgrade to patch openssl and other OS-level CVEs
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
-    && apt-get install -y --no-install-recommends \
-    build-essential \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
+COPY requirements.backend.txt .
 # Upgrade pip, setuptools, and wheel first to eliminate known PyPI CVEs
 # (CVE-2025-47273, CVE-2024-6345, CVE-2026-24049)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements.backend.txt
 
 COPY backend/ ./backend/
 

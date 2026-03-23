@@ -5,7 +5,7 @@ The intent classifier uses pure keyword heuristics — no LLM calls are made —
 so these tests run without any external dependencies or API keys.
 """
 import pytest
-from services.intent_service import classify_intent, get_intent_context, IntentResult, INTENT_LABELS, INTENT_EMOJI
+from services.intent_service import classify_intent, get_intent_context, IntentResult, INTENT_LABELS
 
 
 # ===========================================================================
@@ -89,10 +89,9 @@ class TestClassifyIntentGeneral:
         result = classify_intent("")
         assert result.intent == "general"
 
-    def test_general_has_correct_label_and_emoji(self):
+    def test_general_has_correct_label(self):
         result = classify_intent("hello world")
         assert result.label == INTENT_LABELS["general"]
-        assert result.emoji == INTENT_EMOJI["general"]
 
 
 # ===========================================================================
@@ -125,11 +124,6 @@ class TestIntentResultStructure:
     def test_label_matches_intent(self):
         result = classify_intent("how do I use the API endpoint?")
         assert result.label == INTENT_LABELS[result.intent]
-
-    def test_emoji_matches_intent(self):
-        result = classify_intent("My payment failed")
-        assert result.emoji == INTENT_EMOJI[result.intent]
-
 
 # ===========================================================================
 # classify_intent — case insensitivity

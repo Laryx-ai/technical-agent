@@ -48,7 +48,7 @@ def verify_api_key(key: str | None = Security(_api_key_header)):
     if not _API_KEY_VALUE:
         return  # auth disabled
     if key != _API_KEY_VALUE:
-        raise HTTPException(status_code=403, detail="Invalid or missing X-API-Key header.")
+        raise HTTPException(status_code=403, detail="Invalid or missing X-Client-Key header.")
 
 # Request / Response models
 
@@ -71,7 +71,6 @@ class ChatRes(BaseModel):
     provider: str | None = None
     intent: str | None = None
     intent_label: str | None = None
-    intent_emoji: str | None = None
 
 
 class IntentReq(BaseModel):
@@ -119,7 +118,6 @@ def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
             "provider": req.provider,
             "intent": intent_result.intent,
             "intent_label": intent_result.label,
-            "intent_emoji": intent_result.emoji,
         }
     elif req.provider in ("groq", "mistral"):
         response_msg = get_langchain_response(req.prompt, provider=req.provider, history=req.history)
@@ -134,7 +132,6 @@ def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
         "provider": req.provider,
         "intent": intent_result.intent,
         "intent_label": intent_result.label,
-        "intent_emoji": intent_result.emoji,
     }
 
 
@@ -149,7 +146,6 @@ def rag_chat(req: RagReq, auth: None = Depends(verify_api_key)):
         "provider": req.provider,
         "intent": intent_result.intent,
         "intent_label": intent_result.label,
-        "intent_emoji": intent_result.emoji,
     }
 
 
@@ -169,7 +165,6 @@ def detect_intent(req: IntentReq, auth: None = Depends(verify_api_key)):
     return {
         "intent": result.intent,
         "label": result.label,
-        "emoji": result.emoji,
         "confidence": result.confidence,
     }
 

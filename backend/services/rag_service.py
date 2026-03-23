@@ -18,6 +18,8 @@ Key difference from langchain_service.py:
   rag_service        → answers grounded in knowledge_base/ documents only
 """
 import os
+import json
+import hashlib
 from dotenv import load_dotenv
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_community.vectorstores import FAISS
@@ -34,9 +36,54 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))
 
 _KB_PATH = os.path.join(os.path.dirname(__file__), "../knowledge_base")
 _FAISS_PATH = os.path.join(os.path.dirname(__file__), "../faiss_index")
+_FAISS_META_PATH = os.path.join(_FAISS_PATH, "meta.json")
 
 # Local embeddings — lazy initialized on first use
 _embeddings = None
+_vectorstore = None
+
+
+def _kb_file_paths() -> list[str]:
+    paths: list[str] = []
+    for root, _, files in os.walk(_KB_PATH):
+        for name in files:
+            lower = name.lower()
+            if lower.endswith(".md") or lower.endswith(".txt"):
+                paths.append(os.path.join(root, name))
+    paths.sort()
+    return paths
+
+
+def _kb_signature() -> str:
+    """
+    Stable signature of KB content state (paths + mtimes + file sizes).
+    Used to detect when the FAISS index is stale.
+    """
+    hasher = hashlib.sha256()
+    for path in _kb_file_paths():
+        stat = os.stat(path)
+        rel_path = os.path.relpath(path, _KB_PATH).replace("\\", "/")
+        hasher.update(rel_path.encode("utf-8"))
+        hasher.update(str(stat.st_mtime_ns).encode("utf-8"))
+        hasher.update(str(stat.st_size).encode("utf-8"))
+    return hasher.hexdigest()
+
+
+def _read_index_meta() -> dict:
+    if not os.path.exists(_FAISS_META_PATH):
+        return {}
+    try:
+        with open(_FAISS_META_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _write_index_meta(signature: str, vectors: int) -> None:
+    os.makedirs(_FAISS_PATH, exist_ok=True)
+    payload = {"kb_signature": signature, "vectors": vectors}
+    with open(_FAISS_META_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
 
 
 def _get_embeddings() -> HuggingFaceEmbeddings:
@@ -52,10 +99,20 @@ def _build_rag_prompt(intent_context: str = "") -> ChatPromptTemplate:
     agent_name = cfg["agent_name"]
     company_name = cfg["company_name"]
     base_system = (
-        f"You are {agent_name}, a friendly and knowledgeable support agent for {company_name}.\n\n"
-        "Use the provided documentation to answer the user question accurately and concisely.\n"
-        "If the answer is not found in the documentation, say you don't know instead of guessing.\n"
-    )
+    f"You are {agent_name}, a support agent for {company_name}.\n\n"
+
+    "Answer using ONLY the provided documentation.\n"
+    "If the answer is not in the documentation, say you are not sure and offer to help further.\n\n"
+
+    "Response style rules:\n"
+    "- Talk like a real human support agent, not like documentation\n"
+    "- Keep responses short and natural (3–6 sentences unless needed)\n"
+    "- Do NOT list everything — only give what is relevant\n"
+    "- Avoid repeating the product name unnecessarily\n"
+    "- Avoid marketing phrases\n"
+    "- Prefer simple explanations over formal wording\n"
+    "- If helpful, ask a follow-up question\n"
+)
     if intent_context:
         base_system += f"\nContext hint: {intent_context}\n"
     base_system += "\nDocumentation:\n{context}"
@@ -69,9 +126,26 @@ def _build_rag_prompt(intent_context: str = "") -> ChatPromptTemplate:
 
 def _load_vectorstore() -> FAISS:
     """Load existing FAISS index or build one from the knowledge_base folder."""
-    if os.path.exists(_FAISS_PATH):
-        return FAISS.load_local(_FAISS_PATH, _get_embeddings(), allow_dangerous_deserialization=True)
-    return _build_vectorstore()
+    global _vectorstore
+    kb_sig = _kb_signature()
+    meta = _read_index_meta()
+    index_matches_kb = (
+        os.path.exists(_FAISS_PATH)
+        and meta.get("kb_signature") == kb_sig
+    )
+
+    if _vectorstore is not None:
+        if index_matches_kb:
+            return _vectorstore
+        # KB changed since last in-memory load; rebuild below.
+        _vectorstore = None
+
+    if index_matches_kb:
+        _vectorstore = FAISS.load_local(_FAISS_PATH, _get_embeddings(), allow_dangerous_deserialization=True)
+        return _vectorstore
+
+    _vectorstore = _build_vectorstore()
+    return _vectorstore
 
 
 def _build_vectorstore() -> FAISS:
@@ -84,15 +158,18 @@ def _build_vectorstore() -> FAISS:
     chunks = splitter.split_documents(docs)
     vectorstore = FAISS.from_documents(chunks, _get_embeddings())
     vectorstore.save_local(_FAISS_PATH)
+    _write_index_meta(_kb_signature(), vectorstore.index.ntotal)
     return vectorstore
 
 
 def rebuild_index() -> str:
     """Force rebuild the FAISS index from current knowledge_base contents."""
+    global _vectorstore
     import shutil
     if os.path.exists(_FAISS_PATH):
         shutil.rmtree(_FAISS_PATH)
     vs = _build_vectorstore()
+    _vectorstore = vs
     return f"Index rebuilt with {vs.index.ntotal} vectors."
 
 

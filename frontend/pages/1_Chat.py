@@ -1,5 +1,5 @@
 import streamlit as st
-from utils import api, intent_badge, sidebar_agent_info
+from utils import api, sidebar_agent_info
 
 st.set_page_config(
     page_title="Chat — SaaS Support Agent",
@@ -17,6 +17,10 @@ provider = st.session_state.get("_provider", "groq")
 if "welcome_msg" not in st.session_state:
     data, _ = api("get", "/agent/welcome")
     st.session_state.welcome_msg = data["message"] if data else "Hi! How can I help you today?"
+
+if "_max_history_turns" not in st.session_state:
+    cfg, _ = api("get", "/agent/config")
+    st.session_state._max_history_turns = int((cfg or {}).get("max_history_turns", 10))
 
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -41,6 +45,12 @@ def _queue(user_prompt: str):
     st.session_state.prefill = ""
     st.rerun()
 
+
+def _trim_history(messages: list[dict], max_turns: int) -> list[dict]:
+    """Keep only the most recent turns to bound token usage and response latency."""
+    keep_messages = max(max_turns, 1) * 2
+    return messages[-keep_messages:]
+
 # Welcome screen
 agent_name = info.get("agent", "Alex") if info else "Alex"
 
@@ -63,35 +73,31 @@ else:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
             if msg["role"] == "assistant" and msg.get("intent_label"):
-                st.caption(
-                    intent_badge(msg.get("intent_emoji", "💬"), msg["intent_label"])
-                    + f"  ·  via `{service}/{provider}`"
-                )
+                st.caption(f"{msg['intent_label']}  ·  via `{service}/{provider}`")
 
     if st.session_state.pending:
         pending_prompt = st.session_state.pending
         with st.chat_message("assistant"):
             with st.spinner("Thinking…"):
+                max_turns = int(st.session_state.get("_max_history_turns", 10))
                 payload = {
                     "prompt": pending_prompt,
                     "provider": provider,
-                    "history": st.session_state.history[:-1],
+                    "history": _trim_history(st.session_state.history[:-1], max_turns),
                 }
                 endpoint = "/rag" if service == "rag" else "/chat"
                 resp_data, err = api("post", endpoint, json=payload)
         if err:
             response = f"⚠️ {err}"
-            i_label = i_emoji = None
+            i_label = None
         else:
             data = resp_data or {}
             response = data.get("response", "")
             i_label = data.get("intent_label")
-            i_emoji = data.get("intent_emoji", "💬")
         st.session_state.history.append({
             "role": "assistant",
             "content": response,
             "intent_label": i_label,
-            "intent_emoji": i_emoji,
         })
         st.session_state.pending = None
         st.rerun()

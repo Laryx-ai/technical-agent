@@ -248,7 +248,6 @@ with st.expander("Chat"):
 {
   "response":     "Here is how to reset your password…",
   "intent_label": "Account & Login",
-  "intent_emoji": "🔐"
 }
 ```
 """)
@@ -269,7 +268,6 @@ with st.expander("Intent"):
 {
   "intent":     "billing",
   "label":      "Billing",
-  "emoji":      "💳",
   "confidence": 0.95
 }
 ```

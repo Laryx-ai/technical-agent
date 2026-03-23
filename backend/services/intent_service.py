@@ -71,16 +71,6 @@ INTENT_LABELS: dict[str, str] = {
     "general": "General Inquiry",
 }
 
-INTENT_EMOJI: dict[str, str] = {
-    "billing": "💳",
-    "troubleshooting": "🔧",
-    "account": "🔐",
-    "integrations": "🔗",
-    "api": "⚙️",
-    "feature_request": "💡",
-    "general": "💬",
-}
-
 
 # ---------------------------------------------------------------------------
 # Core classifier
@@ -90,7 +80,6 @@ INTENT_EMOJI: dict[str, str] = {
 class IntentResult:
     intent: str
     label: str
-    emoji: str
     confidence: float          # 0.0 – 1.0  (heuristic score)
     matched_patterns: list[str]
 
@@ -115,7 +104,6 @@ def classify_intent(text: str) -> IntentResult:
         return IntentResult(
             intent="general",
             label=INTENT_LABELS["general"],
-            emoji=INTENT_EMOJI["general"],
             confidence=0.5,
             matched_patterns=[],
         )
@@ -134,7 +122,6 @@ def classify_intent(text: str) -> IntentResult:
     return IntentResult(
         intent=best_intent,
         label=INTENT_LABELS[best_intent],
-        emoji=INTENT_EMOJI[best_intent],
         confidence=round(confidence, 2),
         matched_patterns=matched,
     )

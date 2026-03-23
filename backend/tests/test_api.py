@@ -20,7 +20,6 @@ from services.intent_service import IntentResult
 _DUMMY_INTENT = IntentResult(
     intent="general",
     label="General Inquiry",
-    emoji="💬",
     confidence=0.5,
     matched_patterns=[],
 )
@@ -61,7 +60,6 @@ def test_chat_groq_provider(client):
     assert body["provider"] == "groq"
     assert body["intent"] == "general"
     assert body["intent_label"] == "General Inquiry"
-    assert body["intent_emoji"] == "💬"
 
 
 def test_chat_mistral_provider(client):
@@ -149,7 +147,6 @@ def test_detect_intent_returns_classification(client):
     billing_intent = IntentResult(
         intent="billing",
         label="Billing & Subscription",
-        emoji="💳",
         confidence=0.8,
         matched_patterns=[r"\bbill\b"],
     )
@@ -160,7 +157,6 @@ def test_detect_intent_returns_classification(client):
     body = resp.json()
     assert body["intent"] == "billing"
     assert body["label"] == "Billing & Subscription"
-    assert body["emoji"] == "💳"
     assert body["confidence"] == 0.8
 
 

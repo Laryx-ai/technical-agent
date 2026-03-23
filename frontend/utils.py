@@ -1,23 +1,25 @@
 import os
 import requests
+import streamlit as st
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "../.env"))
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 _API_KEY = os.getenv("API_KEY", "").strip()
+_SESSION = requests.Session()
 
 
 def _auth_headers() -> dict:
-    """Return X-API-Key header when an API key is configured."""
-    return {"X-API-Key": _API_KEY} if _API_KEY else {}
+    """Return X-Client-Key header when an API key is configured."""
+    return {"X-Client-Key": _API_KEY} if _API_KEY else {}
 
 
 def api(method: str, path: str, **kwargs):
     url = f"{BACKEND_URL}{path}"
     headers = {**_auth_headers(), **kwargs.pop("headers", {})}
     try:
-        resp = getattr(requests, method)(url, timeout=60, headers=headers, **kwargs)
+        resp = _SESSION.request(method=method.upper(), url=url, timeout=60, headers=headers, **kwargs)
         resp.raise_for_status()
         return resp.json(), None
     except requests.exceptions.ConnectionError:
@@ -35,15 +37,17 @@ def api(method: str, path: str, **kwargs):
         return None, str(e)
 
 
-def intent_badge(emoji: str, label: str) -> str:
-    return f"{emoji} **{label}**"
+@st.cache_data(ttl=10, show_spinner=False)
+def _cached_get(path: str):
+    """Short-lived cache for read-only sidebar/status calls."""
+    return api("get", path)
+
 
 
 def sidebar_agent_info():
     """Render agent identity block at the bottom of the sidebar. Returns the health info dict."""
-    import streamlit as st
-    info, err = api("get", "/health")
-    kb_data, _ = api("get", "/kb/documents")
+    info, err = _cached_get("/health")
+    kb_data, _ = _cached_get("/kb/documents")
     kb_count = len((kb_data or {}).get("documents", []))
 
     # Status signals
