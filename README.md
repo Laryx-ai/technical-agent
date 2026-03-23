@@ -28,6 +28,8 @@ An AI-powered SaaS technical support agent with **RAG-grounded answers**, **inte
 | **Two-Step Chat Render** | User message appears instantly; assistant response is shown after backend completion with spinner feedback |
 | **Cached Sidebar Status** | Backend status and KB doc count are cached briefly to reduce rerun latency |
 | **Auto RAG Index Freshness** | KB changes are detected via signature checks and stale FAISS indexes are rebuilt automatically |
+| **Per-Response Feedback** | Users can rate each assistant reply (`👍/👎`) and feedback is stored for review |
+| **Logs Page** | Dedicated Streamlit page to inspect backend logs and runtime events |
 | **Docker Deployment** | Single `docker compose up` for local or cloud deployment |
 
 ---
@@ -38,7 +40,9 @@ An AI-powered SaaS technical support agent with **RAG-grounded answers**, **inte
 technical-agent/
 ├── .env                              # API keys (not committed — copy from .env.example)
 ├── .env.example                      # Template for required environment variables
-├── requirements.txt
+├── requirements.txt                 # Full dependency set (legacy/all-in-one)
+├── requirements.backend.txt         # Backend-only dependencies
+├── requirements.frontend.txt        # Frontend-only dependencies
 ├── Dockerfile.backend
 ├── Dockerfile.frontend
 ├── docker-compose.yml
@@ -46,6 +50,7 @@ technical-agent/
 │   ├── main.py                       # FastAPI app — all REST endpoints
 │   ├── agent_config.json             # Auto-created per-client config (gitignored)
 │   ├── faiss_index/                  # Auto-generated FAISS vector index
+│   ├── logs/                         # Runtime logs (app.log, feedback.jsonl)
 │   ├── knowledge_base/               # Drop .txt or .md files here for RAG
 │   │   ├── DOCUMENTATION.md
 │   │   ├── faq.md
@@ -75,7 +80,8 @@ technical-agent/
         ├── 1_Chat.py                 # Two-state chat UI (welcome screen / chat history)
         ├── 2_Knowledge_Base.py       # Upload, view, delete documents; rebuild FAISS index
         ├── 3_Agent_Config.py         # Model Settings + Agent Configuration (unified Settings page)
-        └── 4_Docs.py                 # Built-in documentation
+        ├── 4_Docs.py                 # Built-in documentation
+        └── 5_Logs.py                 # View backend log output in the UI
 ```
 
 ---
@@ -112,7 +118,12 @@ source venv/bin/activate     # macOS/Linux
 ### 2. Install dependencies
 
 ```bash
+# Full install
 pip install -r requirements.txt
+
+# Or split install
+pip install -r requirements.backend.txt
+pip install -r requirements.frontend.txt
 ```
 
 ### 3. Configure environment variables
@@ -134,6 +145,8 @@ Fill in your API keys in `.env`.
 | `MISTRAL_AGENT_ID` | Mistral Agent (optional — only for the Conversations API path) |
 | `HF_TOKEN` | HuggingFace Inference API |
 | `API_KEY` | Optional backend auth key. If set, every request must include `X-Client-Key` |
+| `LOG_DIR` | Optional log directory override (default: `backend/logs`) |
+| `LOG_FILE` | Optional full log file path override (default: `<LOG_DIR>/app.log`) |
 | `BACKEND_URL` | Frontend → backend URL (default: `http://localhost:8000`) |
 
 ### 4. Quick smoke test (optional)
@@ -221,6 +234,12 @@ All endpoints are open by default. If you configure `API_KEY` in `.env`, include
 |---|---|---|
 | `POST` | `/intent` | Classify query intent without generating an answer |
 
+### Feedback
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/feedback` | Record per-response user feedback (`up` / `down`) |
+
 ### Agent Configuration
 
 | Method | Endpoint | Description |
@@ -267,6 +286,9 @@ All endpoints are open by default. If you configure `API_KEY` in `.env`, include
 │                                                         │
 │  Page 4 — Docs                                          │
 │    Built-in usage and API documentation                 │
+│                                                         │
+│  Page 5 — Logs                                          │
+│    Live/refreshable backend log inspection              │
 └──────────────────────────┬──────────────────────────────┘
                            │  GET/POST /chat | /rag | /kb/... | /agent/...
                            │  HTTP :8000
@@ -411,6 +433,7 @@ That's it — no code changes required.
 ### Active state (after first message)
 - Chat history displayed in a **fixed-height (490 px) scrollable container** — layout never shifts as messages accumulate
 - Input box anchored **directly below** the message area in a consistent position
+- Per-assistant-message **feedback buttons** (`👍` / `👎`) capture usefulness ratings
 - **Clear** button between the message list and input bar
 
 ---
@@ -496,7 +519,7 @@ The project ships with a full pytest test suite that covers all API endpoints an
 backend/tests/
 ├── __init__.py
 ├── conftest.py                   # shared FastAPI TestClient fixture
-├── test_api.py                   # 29 endpoint tests (all routes in main.py)
+├── test_api.py                   # endpoint tests (all routes in main.py, including /feedback)
 ├── test_intent_service.py        # 34 unit tests — intent classification
 ├── test_kb_service.py            # 28 unit tests — KB document CRUD & path-safety
 └── test_agent_config_service.py  # 20 unit tests — config load/save/reset/resolve
@@ -547,7 +570,7 @@ httpx
 
 | File | Scope | Mocking strategy |
 |---|---|---|
-| `test_api.py` | All REST endpoints — happy paths, error cases, auth | `unittest.mock.patch` on service functions; `monkeypatch` for env vars |
+| `test_api.py` | All REST endpoints — happy paths, error cases, auth, feedback capture | `unittest.mock.patch` on service functions; `monkeypatch` for env vars |
 | `test_intent_service.py` | `classify_intent`, `get_intent_context` | None — pure keyword heuristics, no I/O |
 | `test_kb_service.py` | `_safe_filename`, `save_document`, `get_document`, `delete_document`, `list_documents` | `tmp_path` + `monkeypatch` redirect `_KB_PATH` |
 | `test_agent_config_service.py` | `get_config`, `update_config`, `reset_config`, `resolve_system_prompt`, `resolve_welcome_message` | `tmp_path` + `monkeypatch` redirect `_CONFIG_PATH` |
