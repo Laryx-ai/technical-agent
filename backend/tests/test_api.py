@@ -6,6 +6,8 @@ vector index are needed.  The fixtures in conftest.py provide a shared
 app instance; each test patches only the functions it exercises.
 """
 import importlib
+import json
+import os
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -166,6 +168,42 @@ def test_detect_intent_general_fallback(client):
 
     assert resp.status_code == 200
     assert resp.json()["intent"] == "general"
+
+
+# ===========================================================================
+# POST /feedback
+# ===========================================================================
+
+def test_submit_feedback_records_event(client):
+    target = os.path.join("backend", "logs", "test_feedback.jsonl")
+    if os.path.exists(target):
+        os.remove(target)
+    payload = {
+        "message_id": "msg-1",
+        "rating": "up",
+        "prompt": "How do I reset password?",
+        "response": "Use the reset link.",
+        "provider": "groq",
+        "service": "rag",
+        "intent_label": "Account & Login",
+    }
+    with patch("main._FEEDBACK_FILE", target):
+        resp = client.post("/feedback", json=payload)
+
+    assert resp.status_code == 200
+    assert os.path.exists(target)
+    with open(target, "r", encoding="utf-8") as f:
+        lines = f.read().strip().splitlines()
+    assert len(lines) == 1
+    row = json.loads(lines[0])
+    assert row["message_id"] == "msg-1"
+    assert row["rating"] == "up"
+    os.remove(target)
+
+
+def test_submit_feedback_rejects_invalid_rating(client):
+    resp = client.post("/feedback", json={"message_id": "msg-1", "rating": "meh"})
+    assert resp.status_code == 422
 
 
 # ===========================================================================

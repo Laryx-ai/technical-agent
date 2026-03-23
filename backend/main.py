@@ -1,9 +1,12 @@
 import os
+import json
+from datetime import datetime, timezone
 from services.log_config import logger
 from fastapi import FastAPI, HTTPException, UploadFile, File, Security, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel
+from typing import Literal
 from services import (
     get_hf_response,
     get_langchain_response,
@@ -42,6 +45,7 @@ app.add_middleware(
 
 _API_KEY_VALUE = os.getenv("API_KEY", "").strip()
 _api_key_header = APIKeyHeader(name="X-Client-Key", auto_error=False)
+_FEEDBACK_FILE = os.path.join(os.path.dirname(__file__), "logs", "feedback.jsonl")
 
 
 def verify_api_key(key: str | None = Security(_api_key_header)):
@@ -104,6 +108,16 @@ class AgentConfigUpdate(BaseModel):
 class KBDocumentUpload(BaseModel):
     filename: str
     content: str
+
+
+class FeedbackReq(BaseModel):
+    message_id: str
+    rating: Literal["up", "down"]
+    prompt: str | None = None
+    response: str | None = None
+    provider: str | None = None
+    service: str | None = None
+    intent_label: str | None = None
 
 # Health
 
@@ -203,6 +217,28 @@ def detect_intent(req: IntentReq, auth: None = Depends(verify_api_key)):
         "label": result.label,
         "confidence": result.confidence,
     }
+
+
+@app.post("/feedback", tags=["Feedback"])
+def submit_feedback(req: FeedbackReq, auth: None = Depends(verify_api_key)):
+    """Store per-response feedback from the chat UI."""
+    event = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "message_id": req.message_id,
+        "rating": req.rating,
+        "prompt": req.prompt,
+        "response": req.response,
+        "provider": req.provider,
+        "service": req.service,
+        "intent_label": req.intent_label,
+    }
+    os.makedirs(os.path.dirname(_FEEDBACK_FILE), exist_ok=True)
+    with open(_FEEDBACK_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    logger.info(
+        f"/feedback recorded: message_id={req.message_id}, rating={req.rating}, provider={req.provider}, service={req.service}"
+    )
+    return {"message": "Feedback recorded."}
 
 # Agent configuration endpoints
 

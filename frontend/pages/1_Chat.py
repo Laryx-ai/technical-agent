@@ -1,4 +1,5 @@
 import streamlit as st
+import uuid
 from utils import api, sidebar_agent_info
 
 st.set_page_config(
@@ -30,6 +31,9 @@ if "pending" not in st.session_state:
 
 if "prefill" not in st.session_state:
     st.session_state.prefill = ""
+
+if "feedback_submitted" not in st.session_state:
+    st.session_state.feedback_submitted = {}
 
 SUGGESTIONS = [
     "How do I reset my password?",
@@ -69,11 +73,37 @@ if not st.session_state.history and not st.session_state.pending:
 
 # Active chat
 else:
-    for msg in st.session_state.history:
+    for idx, msg in enumerate(st.session_state.history):
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
             if msg["role"] == "assistant" and msg.get("intent_label"):
                 st.caption(f"{msg['intent_label']}  ·  via `{service}/{provider}`")
+            if msg["role"] == "assistant":
+                message_id = msg.get("id") or f"msg_{idx}"
+                rating = st.session_state.feedback_submitted.get(message_id)
+                if rating:
+                    st.caption("Thanks for your feedback.")
+                else:
+                    _, c1, _sp, c2 = st.columns([6, 1, 0.0001, 1])
+                    up_clicked = c1.button("👍", key=f"fb_up_{message_id}")
+                    down_clicked = c2.button("👎", key=f"fb_down_{message_id}")
+                    if up_clicked or down_clicked:
+                        fb_rating = "up" if up_clicked else "down"
+                        payload = {
+                            "message_id": message_id,
+                            "rating": fb_rating,
+                            "prompt": msg.get("prompt"),
+                            "response": msg.get("content"),
+                            "provider": msg.get("provider", provider),
+                            "service": msg.get("service", service),
+                            "intent_label": msg.get("intent_label"),
+                        }
+                        _, fb_err = api("post", "/feedback", json=payload)
+                        if fb_err:
+                            st.warning(f"Could not submit feedback: {fb_err}")
+                        else:
+                            st.session_state.feedback_submitted[message_id] = fb_rating
+                            st.rerun()
 
     if st.session_state.pending:
         pending_prompt = st.session_state.pending
@@ -88,7 +118,7 @@ else:
                 endpoint = "/rag" if service == "rag" else "/chat"
                 resp_data, err = api("post", endpoint, json=payload)
         if err:
-            response = f"⚠️ {err}"
+            response = f"{err}"
             i_label = None
         else:
             data = resp_data or {}
@@ -96,7 +126,11 @@ else:
             i_label = data.get("intent_label")
         st.session_state.history.append({
             "role": "assistant",
+            "id": str(uuid.uuid4()),
             "content": response,
+            "prompt": pending_prompt,
+            "provider": provider,
+            "service": service,
             "intent_label": i_label,
         })
         st.session_state.pending = None
@@ -104,6 +138,7 @@ else:
 
     if st.button("Clear", key="clear_chat"):
         st.session_state.history = []
+        st.session_state.feedback_submitted = {}
         st.session_state.prefill = ""
         st.session_state.pending = None
         st.rerun()
