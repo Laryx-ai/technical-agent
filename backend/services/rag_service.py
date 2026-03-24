@@ -21,7 +21,7 @@ import os
 import json
 import hashlib
 from dotenv import load_dotenv
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -48,7 +48,7 @@ def _kb_file_paths() -> list[str]:
     for root, _, files in os.walk(_KB_PATH):
         for name in files:
             lower = name.lower()
-            if lower.endswith(".md") or lower.endswith(".txt"):
+            if lower.endswith(".md") or lower.endswith(".txt") or lower.endswith(".pdf"):
                 paths.append(os.path.join(root, name))
     paths.sort()
     return paths
@@ -149,11 +149,13 @@ def _load_vectorstore() -> FAISS:
 
 
 def _build_vectorstore() -> FAISS:
-    """Load all .txt and .md files from knowledge_base, chunk and embed them."""
+    """Load .txt/.md/.pdf files from knowledge_base, chunk and embed them."""
     docs = []
     for glob in ["**/*.txt", "**/*.md"]:
         loader = DirectoryLoader(_KB_PATH, glob=glob, loader_cls=TextLoader, silent_errors=True)
         docs.extend(loader.load())
+    pdf_loader = DirectoryLoader(_KB_PATH, glob="**/*.pdf", loader_cls=PyPDFLoader, silent_errors=True)
+    docs.extend(pdf_loader.load())
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = splitter.split_documents(docs)
     vectorstore = FAISS.from_documents(chunks, _get_embeddings())

@@ -311,21 +311,18 @@ def upload_kb_document(doc: KBDocumentUpload, auth: None = Depends(verify_api_ke
 @app.post("/kb/documents/upload-file", tags=["Knowledge Base"])
 async def upload_kb_file(file: UploadFile = File(...), auth: None = Depends(verify_api_key)):
     """
-    Upload a .md or .txt file directly.  Multipart form upload.
+    Upload a .md, .txt, or .pdf file directly.  Multipart form upload.
     After uploading, call /rag/rebuild to update the vector index.
     """
-    allowed = {".md", ".txt"}
+    allowed = {".md", ".txt", ".pdf"}
     import os as _os
     ext = _os.path.splitext(file.filename or "")[1].lower()
     if ext not in allowed:
-        raise HTTPException(status_code=400, detail=f"Only .md and .txt files are allowed.")
+        raise HTTPException(status_code=400, detail="Only .md, .txt, and .pdf files are allowed.")
     try:
         content_bytes = await file.read()
-        content = content_bytes.decode("utf-8")
-        meta = save_document(file.filename or "upload.txt", content)
+        meta = save_document(file.filename or "upload.txt", content_bytes)
         return {"message": "File uploaded.", "document": meta}
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="File must be UTF-8 encoded text.")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

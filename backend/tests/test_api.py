@@ -314,6 +314,26 @@ def test_upload_kb_document_invalid_extension_returns_400(client):
     assert resp.status_code == 400
 
 
+def test_upload_kb_file_pdf_success(client):
+    with patch("main.save_document", return_value=_DUMMY_DOC_META) as mock_save:
+        resp = client.post(
+            "/kb/documents/upload-file",
+            files={"file": ("guide.pdf", b"%PDF-1.4 test", "application/pdf")},
+        )
+
+    assert resp.status_code == 200
+    mock_save.assert_called_once_with("guide.pdf", b"%PDF-1.4 test")
+
+
+def test_upload_kb_file_rejects_disallowed_extension(client):
+    resp = client.post(
+        "/kb/documents/upload-file",
+        files={"file": ("malware.exe", b"binary", "application/octet-stream")},
+    )
+    assert resp.status_code == 400
+    assert ".pdf" in resp.json()["detail"]
+
+
 def test_delete_kb_document_success(client):
     with patch("main.delete_document", return_value="faq.md"):
         resp = client.delete("/kb/documents/faq.md")

@@ -7,3 +7,6 @@ venv/
 backend/logs/
 backend/services/app.log
 *.log
+
+backend/faiss_index/
+backend/knowledge_base/

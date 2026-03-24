@@ -1,7 +1,8 @@
 import streamlit as st
 from utils import api, sidebar_agent_info
 
-ALLOWED_EXTENSIONS = {".md", ".txt"}
+FILE_UPLOAD_EXTENSIONS = {".md", ".txt", ".pdf"}
+PASTE_EXTENSIONS = {".md", ".txt"}
 MAX_FILE_SIZE_MB = 5
 MIN_WORD_COUNT = 10
 
@@ -9,19 +10,20 @@ MIN_WORD_COUNT = 10
 def _validate_upload(file_bytes: bytes, filename: str, existing_names: list[str]) -> str | None:
     """Return an error string if the uploaded file is invalid, else None."""
     ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    if ext not in ALLOWED_EXTENSIONS:
-        return f"Unsupported file type `{ext}`. Only .md and .txt files are allowed."
+    if ext not in FILE_UPLOAD_EXTENSIONS:
+        return f"Unsupported file type `{ext}`. Only .md, .txt, and .pdf files are allowed."
     size_mb = len(file_bytes) / (1024 * 1024)
     if size_mb > MAX_FILE_SIZE_MB:
         return f"File is {size_mb:.1f} MB — the limit is {MAX_FILE_SIZE_MB} MB."
     if len(file_bytes) == 0:
         return "The file is empty."
-    try:
-        text = file_bytes.decode("utf-8")
-    except UnicodeDecodeError:
-        return "The file does not appear to be valid UTF-8 text. Binary files are not supported."
-    if len(text.split()) < MIN_WORD_COUNT:
-        return f"The file contains fewer than {MIN_WORD_COUNT} words and is unlikely to be useful for RAG."
+    if ext != ".pdf":
+        try:
+            text = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            return "Text files must be UTF-8 encoded."
+        if len(text.split()) < MIN_WORD_COUNT:
+            return f"The file contains fewer than {MIN_WORD_COUNT} words and is unlikely to be useful for RAG."
     if filename in existing_names:
         return f"`{filename}` already exists in the knowledge base. Delete it first or choose a different name."
     return None
@@ -35,7 +37,7 @@ def _validate_paste(filename: str, content: str, existing_names: list[str]) -> s
     if "." not in filename:
         return "Filename must include an extension, e.g. `onboarding.md` or `notes.txt`."
     ext = "." + filename.rsplit(".", 1)[-1].lower()
-    if ext not in ALLOWED_EXTENSIONS:
+    if ext not in PASTE_EXTENSIONS:
         return f"Unsupported file type `{ext}`. Only .md and .txt files are allowed."
     if any(c in filename for c in ('/\\:<>|?*"')):
         return "Filename contains invalid characters."
@@ -62,6 +64,12 @@ st.caption(
     "Upload, view, or delete documents that the RAG agent uses to answer questions. "
     "After making changes, rebuild the index."
 )
+if "kb_flash_success" in st.session_state:
+    st.toast(st.session_state.pop("kb_flash_success"), icon="✅")
+if "kb_uploader_nonce" not in st.session_state:
+    st.session_state["kb_uploader_nonce"] = 0
+if "kb_removed_doc" in st.session_state:
+    st.toast(st.session_state.pop("kb_removed_doc", None), icon="🗑️")
 
 # Existing documents
 st.subheader("Existing Documents")
@@ -83,7 +91,7 @@ else:
                 if del_err:
                     st.error(del_err)
                 else:
-                    st.success(f"Deleted `{doc['filename']}`.")
+                    st.session_state["kb_removed_doc"] = (f"Deleted `{doc['filename']}`. Rebuild the index to apply changes.")
                     st.rerun()
     else:
         st.info("No documents in the knowledge base yet.")
@@ -95,24 +103,39 @@ st.subheader("Upload a Document")
 upload_col1, upload_col2 = st.columns(2)
 
 with upload_col1:
-    st.markdown("**Upload file** (.md or .txt, max 5 MB)")
-    uploaded_file = st.file_uploader("Choose a file", type=["md", "txt"], label_visibility="collapsed")
+    st.markdown("**Upload file** (.md, .txt, or .pdf, max 5 MB)")
+    uploader_key = f"kb_upload_file_{st.session_state['kb_uploader_nonce']}"
+    uploaded_file = st.file_uploader(
+        "Choose a file",
+        type=["md", "txt", "pdf"],
+        label_visibility="collapsed",
+        key=uploader_key,
+    )
     if uploaded_file:
         file_bytes = uploaded_file.getvalue()
+        ext = "." + uploaded_file.name.rsplit(".", 1)[-1].lower() if "." in uploaded_file.name else ""
         upload_err = _validate_upload(file_bytes, uploaded_file.name, existing_names)
         if upload_err:
             st.error(upload_err)
         else:
-            preview = file_bytes.decode("utf-8")[:300]
-            st.caption(f"Preview: {len(file_bytes.decode('utf-8').split())} words · {len(file_bytes) / 1024:.1f} KB")
-            st.code(preview + ("…" if len(file_bytes) > 300 else ""), language="markdown")
+            if ext == ".pdf":
+                st.caption(f"PDF detected · {len(file_bytes) / 1024:.1f} KB")
+            else:
+                text = file_bytes.decode("utf-8")
+                preview = text[:300]
+                st.caption(f"Preview: {len(text.split())} words · {len(file_bytes) / 1024:.1f} KB")
+                st.code(preview + ("..." if len(text) > 300 else ""), language="markdown")
             if st.button("Upload", key="upload_file_btn"):
-                files = {"file": (uploaded_file.name, file_bytes, "text/plain")}
+                mime_type = "application/pdf" if ext == ".pdf" else "text/plain"
+                files = {"file": (uploaded_file.name, file_bytes, mime_type)}
                 _, up_err = api("post", "/kb/documents/upload-file", files=files)
                 if up_err:
                     st.error(up_err)
                 else:
-                    st.success(f"Uploaded `{uploaded_file.name}`. Rebuild the index to apply changes.")
+                    st.session_state["kb_flash_success"] = (
+                        f"Uploaded `{uploaded_file.name}`. Rebuild the index to apply changes."
+                    )
+                    st.session_state["kb_uploader_nonce"] += 1
                     st.rerun()
 
 with upload_col2:

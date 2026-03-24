@@ -28,6 +28,9 @@ class TestSafeFilename:
     def test_valid_txt_filename(self):
         assert kb_mod._safe_filename("notes_2026.txt") == "notes_2026.txt"
 
+    def test_valid_pdf_filename(self):
+        assert kb_mod._safe_filename("guide.pdf") == "guide.pdf"
+
     def test_strips_path_traversal_silently(self):
         # os.path.basename strips directory components; the result is just the filename
         result = kb_mod._safe_filename("../../../faq.md")
@@ -90,6 +93,12 @@ class TestSaveDocument:
         assert meta["filename"] == "evil.md"
         assert os.path.exists(isolated_kb / "evil.md")
 
+    def test_saves_pdf_binary_content(self, isolated_kb):
+        pdf_bytes = b"%PDF-1.4 test-pdf"
+        meta = kb_mod.save_document("manual.pdf", pdf_bytes)
+        assert meta["filename"] == "manual.pdf"
+        assert (isolated_kb / "manual.pdf").read_bytes() == pdf_bytes
+
 
 # ===========================================================================
 # get_document
@@ -109,6 +118,23 @@ class TestGetDocument:
         # basename strips "../"; file "escape.md" doesn't exist → FileNotFoundError
         with pytest.raises(FileNotFoundError):
             kb_mod.get_document("../escape.md")
+
+    def test_extracts_text_from_pdf(self, isolated_kb, monkeypatch):
+        (isolated_kb / "manual.pdf").write_bytes(b"%PDF-1.4 fake")
+
+        class _Page:
+            def __init__(self, text):
+                self._text = text
+
+            def extract_text(self):
+                return self._text
+
+        class _Reader:
+            pages = [_Page("Intro"), _Page("Setup")]
+
+        monkeypatch.setattr(kb_mod, "PdfReader", lambda _: _Reader())
+        content = kb_mod.get_document("manual.pdf")
+        assert content == "Intro\nSetup"
 
 
 # ===========================================================================

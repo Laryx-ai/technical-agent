@@ -60,13 +60,13 @@ with st.expander("Knowledge Base"):
     st.markdown("""
 Manage the documents the RAG agent uses to answer questions.
 
-**Supported formats:** `.md`, `.txt`
+**Supported formats:** `.md`, `.txt`, `.pdf`
 
 **Existing documents** — listed with file size and last-modified date. Each row has a
 **Delete** button that removes the file immediately.
 
 **Upload a Document** — two options side by side:
-- **Upload file** — browse and select a `.md` or `.txt` file.
+- **Upload file** — browse and select a `.md`, `.txt`, or `.pdf` file.
 - **Paste content** — type a filename and paste document content directly.
 
 **Rebuild Index** — must be run after any add or delete to update the FAISS vector index.
@@ -204,7 +204,7 @@ docker-compose down
 st.header("Customising for a New Client")
 st.markdown("""
 1. Go to **Settings > Agent Configuration** and set the agent name, company, welcome message, and system prompt.
-2. Go to **Knowledge Base** and upload your product documentation (`.md` or `.txt`).
+2. Go to **Knowledge Base** and upload your product documentation (`.md`, `.txt`, or `.pdf`).
 3. Click **Rebuild Index** in the Knowledge Base page.
 
 That's it — no code changes required. The agent picks up the new identity and knowledge on the next message.
@@ -315,6 +315,6 @@ with st.expander("Knowledge Base"):
 | `GET` | `/kb/documents` | List all documents with metadata |
 | `GET` | `/kb/documents/{filename}` | Read a single document |
 | `POST` | `/kb/documents` | Save a document by content (JSON body) |
-| `POST` | `/kb/documents/upload-file` | Upload a `.md` or `.txt` file (multipart) |
+| `POST` | `/kb/documents/upload-file` | Upload a `.md`, `.txt`, or `.pdf` file (multipart) |
 | `DELETE` | `/kb/documents/{filename}` | Delete a document |
 """)

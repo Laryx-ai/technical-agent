@@ -3,7 +3,7 @@ kb_service.py — Knowledge Base Document Management
 
 Manages the lifecycle of documents in the knowledge_base/ folder:
   - List existing documents with metadata
-  - Save uploaded documents (text / markdown)
+  - Save uploaded documents (text / markdown / pdf)
   - Delete documents
   - Trigger FAISS index rebuild after changes
 
@@ -15,9 +15,10 @@ from __future__ import annotations
 import os
 import re
 from datetime import datetime
+from pypdf import PdfReader
 
 _KB_PATH = os.path.join(os.path.dirname(__file__), "../knowledge_base")
-_ALLOWED_EXTENSIONS = {".md", ".txt"}
+_ALLOWED_EXTENSIONS = {".md", ".txt", ".pdf"}
 
 
 def _safe_filename(name: str) -> str:
@@ -32,7 +33,7 @@ def _safe_filename(name: str) -> str:
 
     ext = os.path.splitext(name)[1].lower()
     if ext not in _ALLOWED_EXTENSIONS:
-        raise ValueError(f"Extension '{ext}' is not allowed. Use .md or .txt")
+        raise ValueError(f"Extension '{ext}' is not allowed. Use .md , .txt , .pdf")
 
     # Allow only safe characters in the stem
     stem = os.path.splitext(name)[0]
@@ -59,7 +60,7 @@ def list_documents() -> list[dict]:
     return docs
 
 
-def save_document(filename: str, content: str) -> dict:
+def save_document(filename: str, content: str | bytes) -> dict:
     """
     Write *content* to knowledge_base/<filename>.
     Returns document metadata.
@@ -67,8 +68,27 @@ def save_document(filename: str, content: str) -> dict:
     """
     safe_name = _safe_filename(filename)
     dest = os.path.join(_KB_PATH, safe_name)
-    with open(dest, "w", encoding="utf-8") as f:
-        f.write(content)
+    ext = os.path.splitext(safe_name)[1].lower()
+
+    if ext == ".pdf":
+        if not isinstance(content, (bytes, bytearray)):
+            raise ValueError("PDF uploads must be binary file content.")
+        with open(dest, "wb") as f:
+            f.write(content)
+    else:
+        text_content: str
+        if isinstance(content, str):
+            text_content = content
+        elif isinstance(content, (bytes, bytearray, memoryview)):
+            try:
+                text_content = bytes(content).decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ValueError("Text files must be UTF-8 encoded.") from e
+        else:
+            raise ValueError("Text uploads must be string or UTF-8 bytes.")
+
+        with open(dest, "w", encoding="utf-8") as f:
+            f.write(text_content)
     stat = os.stat(dest)
     return {
         "filename": safe_name,
@@ -97,5 +117,10 @@ def get_document(filename: str) -> str:
     target = os.path.join(_KB_PATH, safe_name)
     if not os.path.isfile(target):
         raise FileNotFoundError(f"Document '{safe_name}' not found.")
+    ext = os.path.splitext(safe_name)[1].lower()
+    if ext == ".pdf":
+        with open(target, "rb") as f:
+            reader = PdfReader(f)
+            return "\n".join((page.extract_text() or "").strip() for page in reader.pages).strip()
     with open(target, "r", encoding="utf-8") as f:
         return f.read()

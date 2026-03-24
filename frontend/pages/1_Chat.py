@@ -143,18 +143,11 @@ else:
         st.session_state.pending = None
         st.rerun()
 
-# Input bar
-st.divider()
 _busy = bool(st.session_state.pending)
-with st.form("chat_form", clear_on_submit=True):
-    col_in, col_btn = st.columns([11, 1])
-    user_input = col_in.text_input(
-        "Message",
-        value=st.session_state.prefill,
-        placeholder="Waiting for response…" if _busy else "Ask a support question…",
-        label_visibility="collapsed",
-        disabled=_busy,
-    )
-    submitted = col_btn.form_submit_button("➤", type="primary", use_container_width=True, disabled=_busy)
-    if submitted and not _busy and user_input.strip():
-        _queue(user_input.strip())
+submitted_input = st.chat_input(
+    "Waiting for response…" if _busy else "Ask a support question…",
+    key="chat_input_bottom",
+    disabled=_busy,
+)
+if submitted_input and not _busy and submitted_input.strip():
+    _queue(submitted_input.strip())

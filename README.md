@@ -21,7 +21,7 @@ An AI-powered SaaS technical support agent with **RAG-grounded answers**, **inte
 | **RAG Chat** | Answers grounded in your product's knowledge base via FAISS vector search |
 | **Intent Recognition** | Automatically classifies queries (billing, troubleshooting, account, API, integrations…) |
 | **Agent Configuration** | Customise agent name, company, system prompt, and LLM settings per client |
-| **Knowledge Base Manager** | Upload, view, and delete `.md`/`.txt` documents via the UI or REST API |
+| **Knowledge Base Manager** | Upload, view, and delete `.md`/`.txt`/`.pdf` documents via the UI or REST API |
 | **Multi-Provider LLM** | Groq (LLaMA 3.3 70B), Mistral AI, HuggingFace Inference API |
 | **Conversation Memory** | Recent multi-turn history window passed to each LLM call (configurable via `max_history_turns`) |
 | **Multi-Page UI** | `st.navigation()` router with Chat, Knowledge Base, Settings, and Docs pages |
@@ -51,7 +51,7 @@ technical-agent/
 │   ├── agent_config.json             # Auto-created per-client config (gitignored)
 │   ├── faiss_index/                  # Auto-generated FAISS vector index
 │   ├── logs/                         # Runtime logs (app.log, feedback.jsonl)
-│   ├── knowledge_base/               # Drop .txt or .md files here for RAG
+│   ├── knowledge_base/               # Drop .txt, .md, or .pdf files here for RAG
 │   │   ├── DOCUMENTATION.md
 │   │   ├── faq.md
 │   │   ├── billing.md
@@ -440,15 +440,14 @@ That's it — no code changes required.
 
 ## Document Parsing — Roadmap
 
-The current knowledge base only accepts plain `.md` and `.txt` files. The plan below outlines
-phased support for richer document formats so teams can upload their existing content without
-manual conversion.
+The current knowledge base supports `.md`, `.txt`, and `.pdf` files.
+The roadmap below tracks the next document formats to add.
 
-### Phase 1 — Structured text (next)
+### Phase 1 — Structured text
 
 | Format | Library | Notes |
 |---|---|---|
-| PDF | `pypdf` or `pdfminer.six` | Extract text per page; skip scanned/image-only PDFs |
+| PDF | `pypdf` | Implemented: text extraction per page; scanned/image-only PDFs may yield little or no text |
 | DOCX | `python-docx` | Paragraphs + tables; strip headers/footers |
 | CSV / XLSX | `pandas` | Flatten rows into `field: value` text chunks |
 
