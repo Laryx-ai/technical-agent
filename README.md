@@ -391,6 +391,8 @@ The backend ships **without** authentication to keep the zero-config demo simple
 
 ## Customising for a New SaaS Client
 
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/c612e482-1735-41c6-bba4-8384df3abaaf" />
+
 1. **Update agent identity** — via **Settings > Agent Configuration** or `POST /agent/config`:
    ```json
    {
@@ -430,11 +432,15 @@ That's it — no code changes required.
 - Four **suggestion chips** let users start a conversation with one click
 - `st.chat_input` appears just below the centered content
 
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/75c77f04-0e37-4e46-bdf2-c525e3fd2680" />
+
 ### Active state (after first message)
 - Chat history displayed in a **fixed-height (490 px) scrollable container** — layout never shifts as messages accumulate
 - Input box anchored **directly below** the message area in a consistent position
 - Per-assistant-message **feedback buttons** (`👍` / `👎`) capture usefulness ratings
 - **Clear** button between the message list and input bar
+
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/9893e749-330b-4bb1-9d98-a380448027e2" />
 
 ---
 
@@ -442,6 +448,8 @@ That's it — no code changes required.
 
 The current knowledge base supports `.md`, `.txt`, and `.pdf` files.
 The roadmap below tracks the next document formats to add.
+
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/2da58133-cf46-41c8-bd02-a83208666923" />
 
 ### Phase 1 — Structured text
 
