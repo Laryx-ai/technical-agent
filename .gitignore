@@ -8,5 +8,7 @@ backend/logs/
 backend/services/app.log
 *.log
 
-backend/faiss_index/
-backend/knowledge_base/
+backend/faiss_index/**.pkl
+backend/faiss_index/**.index
+backend/faiss_index/**.json
+backend/knowledge_base/**
