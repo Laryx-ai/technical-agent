@@ -137,7 +137,7 @@ def health(auth: None = Depends(verify_api_key)):
 @app.post("/chat", response_model=ChatRes, tags=["Chat"])
 def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
     """Open-ended chat powered by the configured LLM (no KB lookup)."""
-    logger.info(f"/chat endpoint called: provider={req.provider}, prompt={_clip(req.prompt)}")
+    logger.info(f"/chat endpoint called: provider={req.provider}, prompt={_clip(req.prompt)}, history_len={len(req.history)}")
     if req.provider == "hf":
         response_msg = get_hf_response(req.prompt)
         intent_result = classify_intent(req.prompt)
@@ -179,7 +179,7 @@ def chat(req: ChatReq, auth: None = Depends(verify_api_key)):
 @app.post("/rag", response_model=ChatRes, tags=["Chat"])
 def rag_chat(req: RagReq, auth: None = Depends(verify_api_key)):
     """Knowledge base-grounded chat using RAG + intent-aware prompting."""
-    logger.info(f"/rag endpoint called: provider={req.provider}, prompt={_clip(req.prompt)}")
+    logger.info(f"/rag endpoint called: provider={req.provider}, prompt={_clip(req.prompt)}, history_len={len(req.history)}")
     intent_result = classify_intent(req.prompt)
     response_msg = get_rag_response(req.prompt, provider=req.provider, history=req.history)
     if response_msg.startswith("Error:"):

@@ -52,12 +52,15 @@ technical-agent/
 │   ├── faiss_index/                  # Auto-generated FAISS vector index
 │   ├── logs/                         # Runtime logs (app.log, feedback.jsonl)
 │   ├── knowledge_base/               # Drop .txt, .md, or .pdf files here for RAG
-│   │   ├── DOCUMENTATION.md
-│   │   ├── faq.md
-│   │   ├── billing.md
-│   │   ├── troubleshooting.md
-│   │   ├── integrations.md
-│   │   └── changelog.md
+│   │   ├── DOCUMENTATION.md          # Main product documentation
+│   │   ├── pricing.md                # Pricing plans (Starter, Pro, Enterprise)
+│   │   ├── billing.md                # Billing & subscription details
+│   │   ├── faq.md                    # Frequently asked questions
+│   │   ├── troubleshooting.md        # Common issues and solutions
+│   │   ├── integrations.md           # Third-party integrations
+│   │   ├── onboarding.md             # Getting started guide
+│   │   └── changelog.md              # Version history
+│   │   # Add your own .md, .txt, or .pdf files as needed
 │   └── services/
 │       ├── __init__.py               # Exports all service functions
 │       ├── mistral.py                # Mistral AI via mistralai SDK
@@ -404,8 +407,15 @@ The backend ships **without** authentication to keep the zero-config demo simple
    ```
 
 2. **Upload product documentation** — via the **Knowledge Base** page or `POST /kb/documents`.
+   > ⚠️ **Important**: The RAG system only answers from uploaded documents. If the knowledge base is empty, the LLM will hallucinate responses. Always populate the knowledge base with actual product documentation.
 
 3. **Rebuild the vector index (optional)** — use **Rebuild Index** or `POST /rag/rebuild` for immediate refresh; otherwise stale-index detection will auto-rebuild on next RAG query.
+
+4. **Best practices for knowledge base content**:
+   - Include pricing, billing, and plan details in a dedicated file
+   - Add common troubleshooting guides and FAQs
+   - Keep documents well-structured with clear headings
+   - Update documents before rebuilding the index to ensure fresh responses
 
 That's it — no code changes required.
 

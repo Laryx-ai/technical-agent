@@ -61,7 +61,7 @@ with st.form("agent_config_form"):
     system_prompt = st.text_area(
         "System Prompt",
         value=cfg.get("system_prompt", ""),
-        height=160,
+        height=270,
         help="Use {agent_name} and {company_name} as placeholders.",
     )
     col_c, col_d = st.columns(2)

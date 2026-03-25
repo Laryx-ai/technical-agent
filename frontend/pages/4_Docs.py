@@ -208,6 +208,8 @@ st.markdown("""
 3. Click **Rebuild Index** in the Knowledge Base page.
 
 That's it — no code changes required. The agent picks up the new identity and knowledge on the next message.
+
+> ⚠️ **Important**: The RAG system only answers from uploaded documents. If the knowledge base is empty or lacks content on a topic, the LLM will not have that information. Always populate the knowledge base with your actual product documentation before expecting accurate responses.
 """)
 
 st.divider()
