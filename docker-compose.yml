@@ -9,11 +9,15 @@ services:
     env_file:
       - .env
     volumes:
-      # Persist the FAISS index and knowledge base between restarts
       - ./backend/faiss_index:/app/backend/faiss_index
       - ./backend/knowledge_base:/app/backend/knowledge_base
       - ./backend/agent_config.json:/app/backend/agent_config.json
+      - ./backend/logs:/app/backend/logs
     restart: unless-stopped
+    develop:
+      watch:
+        - path: backend
+          action: rebuild
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
@@ -31,7 +35,12 @@ services:
       - .env
     environment:
       - BACKEND_URL=http://backend:8000
-    depends_on:
-      backend:
-        condition: service_healthy
+    volumes:
+      - ./backend/logs:/app/backend/logs
     restart: unless-stopped
+    develop:
+      watch:
+        - path: frontend
+          action: rebuild
+    depends_on:
+      - backend

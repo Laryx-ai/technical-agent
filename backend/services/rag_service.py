@@ -23,7 +23,7 @@ import hashlib
 from dotenv import load_dotenv
 from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_mistralai import MistralAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
@@ -86,10 +86,15 @@ def _write_index_meta(signature: str, vectors: int) -> None:
         json.dump(payload, f, indent=2)
 
 
-def _get_embeddings() -> HuggingFaceEmbeddings:
+def _get_embeddings() -> MistralAIEmbeddings:
     global _embeddings
     if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        _embeddings = MistralAIEmbeddings(
+            model="mistral-embed-2312",
+            timeout=300,
+            max_retries=3,
+            wait_time=10
+        )
     return _embeddings
 
 
@@ -172,6 +177,7 @@ def rebuild_index() -> str:
     """Force rebuild the FAISS index from current knowledge_base contents."""
     global _vectorstore
     import shutil
+    _vectorstore = None
     if os.path.exists(_FAISS_PATH):
         shutil.rmtree(_FAISS_PATH)
     vs = _build_vectorstore()

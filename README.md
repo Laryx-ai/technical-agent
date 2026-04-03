@@ -18,7 +18,10 @@ An AI-powered SaaS technical support agent with **RAG-grounded answers**, **inte
 
 | Feature | Description |
 |---|---|
+| **Separate Containers** | Backend and frontend run in isolated Docker containers |
+| **Docker Watch** | Auto-rebuild on code changes with `docker compose watch` |
 | **RAG Chat** | Answers grounded in your product's knowledge base via FAISS vector search |
+| **Mistral Embeddings** | Uses `mistral-embed-2312` for high-quality semantic search |
 | **Intent Recognition** | Automatically classifies queries (billing, troubleshooting, account, API, integrations…) |
 | **Agent Configuration** | Customise agent name, company, system prompt, and LLM settings per client |
 | **Knowledge Base Manager** | Upload, view, and delete `.md`/`.txt`/`.pdf` documents via the UI or REST API |
@@ -30,7 +33,7 @@ An AI-powered SaaS technical support agent with **RAG-grounded answers**, **inte
 | **Auto RAG Index Freshness** | KB changes are detected via signature checks and stale FAISS indexes are rebuilt automatically |
 | **Per-Response Feedback** | Users can rate each assistant reply (`👍/👎`) and feedback is stored for review |
 | **Logs Page** | Dedicated Streamlit page to inspect backend logs and runtime events |
-| **Docker Deployment** | Single `docker compose up` for local or cloud deployment |
+| **Docker Deployment** | Separate backend/frontend containers with `docker compose up` |
 
 ---
 
@@ -38,53 +41,58 @@ An AI-powered SaaS technical support agent with **RAG-grounded answers**, **inte
 
 ```
 technical-agent/
-├── .env                              # API keys (not committed — copy from .env.example)
-├── .env.example                      # Template for required environment variables
-├── requirements.txt                 # Full dependency set (legacy/all-in-one)
-├── requirements.backend.txt         # Backend-only dependencies
-├── requirements.frontend.txt        # Frontend-only dependencies
-├── Dockerfile.backend
-├── Dockerfile.frontend
-├── docker-compose.yml
+├── .env                              # API keys (copy from .env.example)
+├── .env.example                      # Environment template
+├── requirements.txt                 # Combined dependencies
+├── requirements.backend.txt         # Backend dependencies
+├── requirements.frontend.txt        # Frontend dependencies
+├── Dockerfile.backend               # Backend container
+├── Dockerfile.frontend             # Frontend container
+├── docker-compose.yml               # Container orchestration
+├── .dockerignore
+├── .gitignore
+├── pytest.ini
+│
 ├── backend/
-│   ├── main.py                       # FastAPI app — all REST endpoints
-│   ├── agent_config.json             # Auto-created per-client config (gitignored)
-│   ├── faiss_index/                  # Auto-generated FAISS vector index
-│   ├── logs/                         # Runtime logs (app.log, feedback.jsonl)
-│   ├── knowledge_base/               # Drop .txt, .md, or .pdf files here for RAG
-│   │   ├── DOCUMENTATION.md          # Main product documentation
-│   │   ├── pricing.md                # Pricing plans (Starter, Pro, Enterprise)
-│   │   ├── billing.md                # Billing & subscription details
-│   │   ├── faq.md                    # Frequently asked questions
-│   │   ├── troubleshooting.md        # Common issues and solutions
-│   │   ├── integrations.md           # Third-party integrations
-│   │   ├── onboarding.md             # Getting started guide
-│   │   └── changelog.md              # Version history
-│   │   # Add your own .md, .txt, or .pdf files as needed
-│   └── services/
-│       ├── __init__.py               # Exports all service functions
-│       ├── mistral.py                # Mistral AI via mistralai SDK
-│       ├── hf.py                     # HuggingFace Inference API
-│       ├── langchain_service.py      # LangChain LCEL chain — multi-provider + memory
-│       ├── rag_service.py            # RAG pipeline — FAISS retrieval + intent-aware prompting
-│       ├── intent_service.py         # Query intent classification (keyword + heuristic)
-│       ├── agent_config_service.py   # Per-client agent configuration management
-│       └── kb_service.py             # Knowledge base document CRUD
+│   ├── main.py                       # FastAPI app
+│   ├── agent_config.json             # Agent configuration (generated)
+│   ├── faiss_index/                  # Vector index (generated)
+│   ├── logs/                         # Runtime logs
+│   ├── knowledge_base/               # RAG documents
+│   │   ├── DOCUMENTATION.md
+│   │   ├── pricing.md
+│   │   ├── billing.md
+│   │   ├── faq.md
+│   │   ├── troubleshooting.md
+│   │   ├── integrations.md
+│   │   ├── onboarding.md
+│   │   └── changelog.md
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── mistral.py                # Mistral SDK
+│   │   ├── hf.py                     # HuggingFace API
+│   │   ├── langchain_service.py      # LLM chain
+│   │   ├── rag_service.py            # RAG pipeline
+│   │   ├── intent_service.py         # Intent classification
+│   │   ├── agent_config_service.py   # Config management
+│   │   ├── kb_service.py             # KB CRUD
+│   │   └── log_config.py             # Logging setup
 │   └── tests/
-│       ├── conftest.py               # Shared FastAPI TestClient fixture
-│       ├── test_api.py               # Endpoint integration tests (all routes)
-│       ├── test_intent_service.py    # Intent classifier unit tests
-│       ├── test_kb_service.py        # KB service unit tests
-│       └── test_agent_config_service.py  # Agent config unit tests
+│       ├── conftest.py
+│       ├── test_api.py
+│       ├── test_intent_service.py
+│       ├── test_kb_service.py
+│       └── test_agent_config_service.py
+│
 └── frontend/
-    ├── app.py                        # st.navigation() router — entry point
-    ├── utils.py                      # Shared helpers: api(), sidebar_agent_info(), cached sidebar reads
+    ├── app.py                        # Streamlit router
+    ├── utils.py                      # API helpers
     └── pages/
-        ├── 1_Chat.py                 # Two-state chat UI (welcome screen / chat history)
-        ├── 2_Knowledge_Base.py       # Upload, view, delete documents; rebuild FAISS index
-        ├── 3_Agent_Config.py         # Model Settings + Agent Configuration (unified Settings page)
-        ├── 4_Docs.py                 # Built-in documentation
-        └── 5_Logs.py                 # View backend log output in the UI
+        ├── 1_Chat.py
+        ├── 2_Knowledge_Base.py
+        ├── 3_Agent_Config.py
+        ├── 4_Docs.py
+        └── 5_Logs.py
 ```
 
 ---
@@ -101,7 +109,7 @@ technical-agent/
 | LLM Providers | Groq — LLaMA 3.3 70B (`langchain-groq`) | 1.1.2 |
 | LLM Providers | HuggingFace (`huggingface_hub`) | 1.4.1 |
 | Vector Store | FAISS (`faiss-cpu`) | 1.13.2 |
-| Embeddings | `all-MiniLM-L6-v2` via sentence-transformers | 5.2.3 |
+| Embeddings | Mistral AI (`mistral-embed-2312`) | latest |
 | Intent Recognition | Custom keyword + heuristic classifier | built-in |
 | Data Validation | Pydantic | 2.12.5 |
 | Containerisation | Docker + docker compose | — |
@@ -197,6 +205,9 @@ Runs at `http://localhost:8501`
 # Build and start both services
 docker compose up --build
 
+# With auto-rebuild on code changes (watch mode)
+docker compose watch
+
 # Detached mode
 docker compose up -d --build
 
@@ -209,6 +220,7 @@ docker compose down
 
 - Backend exposed on **port 8000**
 - Frontend exposed on **port 8501**
+- Backend and frontend run in **separate containers** for better isolation
 - FAISS index, knowledge base, and agent config are mounted as volumes so data persists across container restarts.
 
 ---
@@ -523,6 +535,22 @@ atlassian-python-api>=3.41.0
 notion-client>=2.2.1
 google-api-python-client>=2.100.0
 ```
+
+---
+
+## Recent Changes
+
+### v2.1.0
+- **Separate Containers** — Backend and frontend now run in isolated Docker containers for better resource management and scalability
+- **Docker Watch** — Added `docker compose watch` for auto-rebuild on code changes
+- **Mistral Embeddings** — Switched from sentence-transformers to `mistral-embed-2312` for API-based embeddings
+- **Improved Stability** — Fixed FAISS index rebuild issue by properly releasing vectorstore references
+
+### v2.0.0
+- Multi-page Streamlit UI with navigation
+- Per-client agent configuration
+- RAG with intent-aware prompting
+- Knowledge base management
 
 ---
 
